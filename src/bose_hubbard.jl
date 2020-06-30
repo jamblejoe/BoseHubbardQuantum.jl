@@ -309,11 +309,11 @@ end
 function BoseHubbardHamiltonian(graph, basis::AbstractBasis)
 
     k = basis.k
-		N = basis.N
+	N = basis.N
 
-		@assert k>0
-	  @assert N>0
-		@assert k == nv(graph)
+	@assert k>0
+  	@assert N>0
+	@assert k == nv(graph)
 
 
     tunnel = tunnel_spmatrices(graph, basis)
@@ -345,10 +345,10 @@ the given basis.
 """
 function tunnel_spmatrices(graph, basis::AbstractBasis)
 
-		k = basis.k
+	k = basis.k
 
-		@assert k>0
-		@assert k == nv(graph)
+	@assert k>0
+	@assert k == nv(graph)
 
     basis_length = length(basis)
     sites_count = k
