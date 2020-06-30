@@ -1,7 +1,7 @@
 name = "BoseHubbardQuantum"
 uuid = "c63aad13-acb2-4608-aa60-f5c453864ca4"
 authors = ["Goran Nakerst"]
-version = "0.2.2"
+version = "0.2.3"
 
 [deps]
 GLM = "38e38edf-8417-5370-95a0-9cbb8c7f171a"
