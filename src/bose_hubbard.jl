@@ -147,8 +147,6 @@ end
 #
 ##############################################################################
 
-# tunnel operator
-
 """
 Creates a tunnel operator from source to destination in the standard basis.
 """
@@ -165,11 +163,11 @@ in the given basis.
 function tunnel_spmatrix(source::Integer, destination::Integer,
 	basis::AbstractBasis)
 
-		# ask the discord forum about the following line
-		#@assert typeof(source) == typeof(destination)
+	# ask the discord forum about the following line
+	#@assert typeof(source) == typeof(destination)
 
-		k = basis.k
-		N = basis.N
+	k = basis.k
+	N = basis.N
 
     basis_length = length(basis)
     basis_element_length = k
@@ -241,6 +239,31 @@ function tunnel_symm_spmatrix(site_1::Integer, site_2::Integer, basis::AbstractB
     t = tunnel_spmatrix(site_1, site_2, basis)
     t += transpose(t)
     return t
+end
+
+"""
+Creates the kinetic operator in the standard basis.
+"""
+function kinetic_operator(parameters::Dict)
+    basis = get_or_create_basis(parameters)
+    op = kinetic_spmatrix(basis)
+    return op
+end
+
+"""
+Creates a sparse matrix representing the kinetic operator in the given basis.
+"""
+function tunnel_spmatrix(basis::AbstractBasis)
+	k = basis.k
+	N = basis.N
+
+	@assert k > 1
+
+	op = tunnel_symm_spmatrix(1,2,basis)
+	for i in 2:(k-1)
+		op += tunnel_symm_spmatrix(i,i+1,basis)
+	end
+	op
 end
 
 

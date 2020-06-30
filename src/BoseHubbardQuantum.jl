@@ -13,8 +13,8 @@ export AbstractBasis, LtrAscBasis, get_or_create_basis
 export dimer_graph, trimer_graph, k_chain_graph
 
 # operators
-export tunnel_operator, tunnel_symm_operator, number_operator
-export tunnel_spmatrix, tunnel_symm_spmatrix, number_spmatrix
+export tunnel_operator, tunnel_symm_operator, number_operator, kinetic_operator
+export tunnel_spmatrix, tunnel_symm_spmatrix, number_spmatrix, kinetic_spmatrix
 
 # bosehubbard hamiltonian
 export BoseHubbardHamiltonian, BoseHubbardHamiltonianChain
