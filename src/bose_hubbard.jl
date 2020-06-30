@@ -253,7 +253,7 @@ end
 """
 Creates a sparse matrix representing the kinetic operator in the given basis.
 """
-function tunnel_spmatrix(basis::AbstractBasis)
+function kinetic_spmatrix(basis::AbstractBasis)
 	k = basis.k
 	N = basis.N
 
