@@ -556,7 +556,8 @@ function spmatrix(bhh::BoseHubbardHamiltonian, J, eps, U)
     return H
 end
 
-
+# TODO
+# remove this function at some point
 function spmatrix(bhh::BoseHubbardHamiltonian, J, U)
 	k = bhh.k
 	eps = zeros(k)
