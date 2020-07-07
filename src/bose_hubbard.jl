@@ -305,9 +305,9 @@ function number_spmatrix(site::Integer, basis::AbstractBasis)
         end
     end
 
-    interaction = sparse(diags, diags, values, basis_length, basis_length)
+    number = sparse(diags, diags, values, basis_length, basis_length)
 
-    return interaction
+    return number
 end
 
 
@@ -326,7 +326,8 @@ struct BoseHubbardHamiltonian
     N 			# the number of particles
     k 			# the number of sites
     tunnel 		# stores the tunneling matrices defined by the edges of given graphs
-    interaction # stores the interaction matrices defined by the nodes of given graphs
+    #interaction # stores the interaction matrices defined by the nodes of given graph
+	potential   # stores the potential matrices defined by the nodes of the given graph
 end
 
 function BoseHubbardHamiltonian(graph, basis::AbstractBasis)
@@ -340,9 +341,11 @@ function BoseHubbardHamiltonian(graph, basis::AbstractBasis)
 
 
     tunnel = tunnel_spmatrices(graph, basis)
-    interaction = interaction_spmatrices(graph, basis)
+    #interaction = interaction_spmatrices(graph, basis)
+	potential = potential_spmatrices(graph, basis)
 
-    return BoseHubbardHamiltonian(N, k, tunnel, interaction)
+    #return BoseHubbardHamiltonian(N, k, tunnel, interaction)
+	return BoseHubbardHamiltonian(N, k, tunnel, potential)
 
 end
 
@@ -373,7 +376,7 @@ function tunnel_spmatrices(graph, basis::AbstractBasis)
 	@assert k>0
 	@assert k == nv(graph)
 
-    basis_length = length(basis)
+    #basis_length = length(basis)
     sites_count = k
     tunnel_operators_count = ne(graph)
 
@@ -388,6 +391,28 @@ function tunnel_spmatrices(graph, basis::AbstractBasis)
     end
 
     return tunnel
+end
+
+
+"""
+Create a Vector of sparse matrices holding the onsite potential
+matrices assigned to every vertex of the given graph/lattice with respect to
+the given basis.
+"""
+function potential_spmatrices(graph, basis::AbstractBasis)
+
+	k = basis.k
+
+	@assert k>0
+	@assert k == nv(graph)
+
+	potential = Vector{SparseMatrixCSC{Float64,Int}}(undef, k)
+
+	for i in 1:k
+		potential[i] = number_spmatrix(i, basis)
+	end
+
+	potential
 end
 
 #"""
@@ -476,33 +501,54 @@ function matrix(bhh::BoseHubbardHamiltonian, J, U)
     return Array(spmatrix(bhh, J, U))
 end
 
+function matrix(bhh::BoseHubbardHamiltonian, J, eps, U)
+    return Array(spmatrix(bhh, J, eps, U))
+end
+
 """
 Returns the sparse matrix representation of the given Bose-Hubbard
 Hamiltonian
 """
-function spmatrix(bhh::BoseHubbardHamiltonian, J, U)
+function spmatrix(bhh::BoseHubbardHamiltonian, J, eps, U)
 
     N = bhh.N
     k = bhh.k
     tunnel = bhh.tunnel
-    interaction = bhh.interaction
+    potential = bhh.potential
 
-    tunnel_count = length(tunnel)
-    interaction_count = length(interaction)
-    hilbert_space_size = binomial(N+k-1,k-1)
+    D = bose_hubbard_hilbert_space_size(N, k)
 
-    @assert length(J) == tunnel_count "Number of tunnel parameters must be $tunnel_count"
-    @assert length(U) == interaction_count "Number of on-site interaction parameters must be $interaction_count"
+    @assert length(J) == length(tunnel) "Number of tunnel parameters must be $(length(tunnel))"
+	@assert length(eps) == length(potential) "Number of on-site potential parameters must be $(length(potential))"
+    @assert length(U) == length(potential) "Number of on-site interaction parameters must be $(length(potential))"
 
-    H = spzeros(hilbert_space_size, hilbert_space_size)
-    for i in 1:tunnel_count
+    H = spzeros(D, D)
+	# tunnel part
+    for i in 1:length(tunnel)
         H += -J[i] * tunnel[i]
     end
-    for i in 1:interaction_count
-        H += U[i] * interaction[i]
+
+	# potential part
+	for i in 1:length(potential)
+        H += eps[i] * potential[i]
+    end
+
+	# interaction part
+	#for i in 1:interaction_count
+    #    H += U[i] * interaction[i]
+    #end
+	for i in 1:length(potential)
+        H += U[i] * potential[i] * (potential[i] - I(D))
     end
 
     H *= 0.5
 
     return H
+end
+
+
+function spmatrix(bhh::BoseHubbardHamiltonian, J, U)
+	k = bhh.k
+	eps = zeros(k)
+	return spmatrix(bhh, J, eps, U)
 end

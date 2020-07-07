@@ -1,6 +1,11 @@
 module BoseHubbardQuantum
 
+# TODO:
+#   implement on the fly Hamiltonian creation for big systems
+#   make basis creation multithreaded (req. Julia 1.3+)
+#
 
+using LinearAlgebra
 using LightGraphs
 using SparseArrays
 
