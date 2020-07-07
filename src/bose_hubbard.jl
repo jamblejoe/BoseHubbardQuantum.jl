@@ -505,6 +505,16 @@ function matrix(bhh::BoseHubbardHamiltonian, J, eps, U)
     return Array(spmatrix(bhh, J, eps, U))
 end
 
+function matrix(bhh::BoseHubbardHamiltonian, parameters::Dict)
+	k = parameters["k"]
+	J = parameters["J"]
+	U = haskey(parameters, "U") ? parameters["U"] : zeros(k)
+	U = length(U) == 1 ? [U for _ in 1:k] : U
+	eps = haskey(parameters, "eps") ? parameters["eps"] : zeros(k)
+
+	Array(spmatrix(bhh, J, eps, U))
+end
+
 """
 Returns the sparse matrix representation of the given Bose-Hubbard
 Hamiltonian
