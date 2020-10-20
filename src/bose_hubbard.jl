@@ -3,28 +3,7 @@
 # Basis
 #
 ##############################################################################
-import Base: length, enumerate, isequal
-
-
-# Abstract Basis is not implemented yet and is just a placeholder
-# one should think of AbstractBasis needing to be abstract type
-# or needing to have fields
-abstract type AbstractBasis end
-
-struct LtrAscBasis <: AbstractBasis
-	k::Int
-	N::Int
-	basis::Vector{Vector{Int}}
-	index::Dict{Vector{Int}, Int}
-end
-
-STD_BASIS = LtrAscBasis
-
-# the return type of this function is not defined at compile time!!
-function get_or_create_basis(parameters::Dict)
-	haskey(parameters, "basis") && return parameters["basis"]
-	STD_BASIS(parameters)
-end
+import Base: length, iterate, enumerate, isequal, getindex
 
 """
 For given number of particles N and site count k returns the size of the Hilbert space
@@ -39,6 +18,20 @@ function bose_hubbard_hilbert_space_size(parameters::Dict)
     N = parameters["N"]
   return bose_hubbard_hilbert_space_size(N, k)
 end
+
+
+# Abstract Basis is not implemented yet and is just a placeholder
+# one should think of AbstractBasis needing to be abstract type
+# or needing to have fields
+abstract type AbstractBasis end
+
+struct LtrAscBasis <: AbstractBasis
+	k::Int
+	N::Int
+	basis::Vector{Vector{Int}}
+	index::Dict{Vector{Int}, Int}
+end
+
 
 """
 Creates a list of basis states for
@@ -57,17 +50,17 @@ end
 
 function LtrAscBasis(k::Integer, N::Integer)
 
-	  @assert k>0
+	@assert k>0
     @assert N>0
     D = bose_hubbard_hilbert_space_size(N, k)
 
-		# create the basis
-		state = zeros(typeof(N), k)
+	# create the basis
+	state = zeros(typeof(N), k)
     basis = typeof(state)[]
 
     ltr_asc_loop!(basis, state, N, 1)
-		# calculate the index
-		index = create_basis_index(basis)
+	# calculate the index
+	index = create_basis_index(basis)
 
     return LtrAscBasis(k, N, basis, index)
 end
@@ -85,6 +78,63 @@ function ltr_asc_loop!(basis, state, n::Integer, pos::Integer)
     end
 end
 
+length(basis::LtrAscBasis) = length(basis.basis)
+sites(basis::LtrAscBasis) = basis.k
+enumerate(basis::LtrAscBasis) = enumerate(basis.basis)
+isequal(b1::LtrAscBasis, b2::LtrAscBasis) = b1.k == b2.k && b1.N == b2.N
+
+getindex(basis::LtrAscBasis, state::AbstractVector) = basis.index[state]
+
+
+struct LtrAscBasis0N <: AbstractBasis
+	k::Int
+	N::Int
+end
+
+LtrAscBasis0N(parameters::Dict) = LtrAscBasis0N(k,N)
+
+length(basis::LtrAscBasis0N) = (basis.N+1)^basis.k
+sites(basis::LtrAscBasis0N) = basis.k
+#=
+This probably can be made non-allocating
+=#
+function iterate(basis::LtrAscBasis0N, state=(zeros(Int, basis.k), 1))
+	k = basis.k
+	N = basis.N
+	basis_state, count = state
+
+
+	if count > (N+1)^k
+		return nothing
+	end
+
+	(basis_state, (reverse(digits(count, base = N+1, pad = k)), count+1) )
+end
+isequal(b1::LtrAscBasis0N, b2::LtrAscBasis0N) = b1.k == b2.k && b1.N == b2.N
+
+function getindex(basis::LtrAscBasis0N, state::AbstractVector)
+	k = basis.k
+	N = basis.N
+
+	@assert length(state) == k
+	@assert all(0 .<= state .<= N)
+	index = 1
+	for i in eachindex(state)
+		index += (N+1)^(k-i) * state[i]
+	end
+	index
+end
+
+
+
+STD_BASIS = LtrAscBasis
+
+# the return type of this function is not defined at compile time!!
+function get_or_create_basis(parameters::Dict)
+	haskey(parameters, "basis") && return parameters["basis"]
+	STD_BASIS(parameters)
+end
+
 
 """
 A helper function which creates a dictionary assigning basis elements
@@ -92,7 +142,7 @@ to their position/index in the basis for quick lookup of the index.
 """
 function create_basis_index(basis)
     basis_element_type = eltype(basis)
-		basis_element_element_type = eltype(basis_element_type)
+	basis_element_element_type = eltype(basis_element_type)
     basis_to_index = Dict{basis_element_type, basis_element_element_type}()
     for (i,basis_element) in enumerate(basis)
         push!(basis_to_index, basis_element => i)
@@ -100,10 +150,7 @@ function create_basis_index(basis)
     return basis_to_index
 end
 
-length(basis::LtrAscBasis) = length(basis.basis)
-sites(basis::LtrAscBasis) = basis.k
-enumerate(basis::LtrAscBasis) = enumerate(basis.basis)
-isequal(b1::LtrAscBasis, b2::LtrAscBasis) = b1.k == b2.k && b1.N == b2.N
+
 
 
 ##############################################################################
@@ -185,7 +232,7 @@ function tunnel_spmatrix(source::Integer, destination::Integer,
     values = Float64[]	# is Float64 really necessary here?
 
     # create a helper dictionary to quickly look up indices of basis elements
-    basis_to_index = basis.index
+    #basis_to_index = basis.index
 
 
     for (i,basis_element) in enumerate(basis)
@@ -197,7 +244,7 @@ function tunnel_spmatrix(source::Integer, destination::Integer,
         if all(x -> 0 <= x <= N, neighbouring_state)
 
             # get the index of the neighbouring state
-            neighbour_index = basis_to_index[neighbouring_state]
+            neighbour_index = getindex(basis, neighbouring_state)
 
             # store the indeces
             push!(rows, neighbour_index)
@@ -562,4 +609,69 @@ function spmatrix(bhh::BoseHubbardHamiltonian, J, U)
 	k = bhh.k
 	eps = zeros(k)
 	return spmatrix(bhh, J, eps, U)
+end
+
+
+
+
+
+##############################################################################
+#
+# partial traces
+#
+##############################################################################
+
+"""
+ONLY WORKS FOR 1D CHAINS
+NOT OPTIMIZED
+
+traces out subsystem B and returns O acting on A
+
+Operator O
+"""
+function partialtr(k::Integer, N::Integer, k_B::Integer, O::AbstractMatrix)
+
+	D = bose_hubbard_hilbert_space_size(N, k)
+
+	@assert size(O)[1] == size(O)[2] == D
+	@assert 1 <= k_B <= k
+
+	k_A = k - k_B
+
+	basis_full = LtrAscBasis(k, N)
+	basis_full_index = create_basis_index(basis_full)
+	basis_A = LtrAscBasis0N(k_A, N)
+	D_A = length(basis_A)
+
+	O_A = zeros(D_A,D_A)
+	state_row_cache = zeros(k)
+	state_col_cache = zeros(k)
+
+	for (i, state_A_col) in enumerate(basis_A)
+		N_i = sum(state_A_col)
+		state_col_cache[1:k_A] .= state_A_col
+
+		for (j, state_A_row) in enumerate(basis_A)
+			N_j = sum(state_A_row)
+			state_row_cache[1:k_A] .= state_A_row
+
+
+			for state_B_col in LtrAscBasis(k_b, N-N_i)
+				state_col_cache[k_A+1:end] .= state_B_col
+
+				O_ind_col = basis_full_index[state_col_cache]
+
+				for state_B_row in LtrAscBasis(k_b, N-N_j)
+					state_row_cache[k_A+1:end] .= state_B_row
+
+					O_ind_row = basis_full_index[state_row_cache]
+
+					O_A[j,i] += O[O_ind_row, O_ind_col]
+				end
+			end
+
+		end
+	end
+
+	return O_A
 end

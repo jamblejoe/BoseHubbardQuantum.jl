@@ -12,7 +12,8 @@ using SparseArrays
 
 # basis
 export bose_hubbard_hilbert_space_size
-export AbstractBasis, LtrAscBasis, get_or_create_basis
+export AbstractBasis, get_or_create_basis
+export LtrAscBasis, LtrAscBasis0N
 
 # graphs
 export dimer_graph, trimer_graph, k_chain_graph

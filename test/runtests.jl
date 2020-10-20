@@ -1,6 +1,9 @@
 """
 Created on 10 Sep 2019
 
+
+TODO: 
+    - add more tests for LtrAscBasis0N combined with operators
 """
 
 using BoseHubbardQuantum
@@ -32,6 +35,78 @@ import BoseHubbardQuantum: tunnel_spmatrices
         basis_calc = LtrAscBasis(3,2).basis
         @test basis_corr == basis_calc
     end
+end
+
+
+@testset "LtrAsc0NBasis" begin
+
+    @testset "length" begin
+        for k in 3:5
+        for N in 2:10
+            basis = LtrAscBasis0N(k, N)
+            l = 0
+            for _ in basis
+                l += 1
+            end
+            @test l == length(basis)
+        end
+        end
+    end
+
+    @testset "getindex" begin
+
+        @testset "k=3, N=1" begin
+            k = 3
+            N = 1
+            basis = LtrAscBasis0N(k, N)
+            @test getindex(basis, [0,0,0]) == 1
+            @test getindex(basis, [0,0,1]) == 2
+            @test getindex(basis, [0,1,0]) == 3
+            @test getindex(basis, [0,1,1]) == 4
+            @test getindex(basis, [1,0,0]) == 5
+            @test getindex(basis, [1,0,1]) == 6
+            @test getindex(basis, [1,1,0]) == 7
+            @test getindex(basis, [1,1,1]) == 8
+        end
+
+        @testset "k=3, N=2" begin
+            k = 3
+            N = 2
+            basis = LtrAscBasis0N(k, N)
+            @test getindex(basis, [0,0,0]) == 1
+            @test getindex(basis, [0,0,1]) == 2
+            @test getindex(basis, [0,0,2]) == 3
+            @test getindex(basis, [0,1,0]) == 4
+            @test getindex(basis, [0,1,1]) == 5
+            @test getindex(basis, [0,1,2]) == 6
+            @test getindex(basis, [0,2,0]) == 7
+            @test getindex(basis, [0,2,1]) == 8
+            @test getindex(basis, [0,2,2]) == 9
+            @test getindex(basis, [1,0,0]) == 10
+            @test getindex(basis, [1,0,1]) == 11
+            @test getindex(basis, [1,0,2]) == 12
+            @test getindex(basis, [1,1,0]) == 13
+            @test getindex(basis, [1,1,1]) == 14
+            @test getindex(basis, [1,1,2]) == 15
+            @test getindex(basis, [1,2,0]) == 16
+            @test getindex(basis, [1,2,1]) == 17
+            @test getindex(basis, [1,2,2]) == 18
+            @test getindex(basis, [2,0,0]) == 19
+            @test getindex(basis, [2,0,1]) == 20
+            @test getindex(basis, [2,0,2]) == 21
+            @test getindex(basis, [2,1,0]) == 22
+            @test getindex(basis, [2,1,1]) == 23
+            @test getindex(basis, [2,1,2]) == 24
+            @test getindex(basis, [2,2,0]) == 25
+            @test getindex(basis, [2,2,1]) == 26
+            @test getindex(basis, [2,2,2]) == 27
+        end
+
+    end
+
+
+
+
 end
 
 @testset "Test operators" begin
@@ -262,10 +337,23 @@ end
 
     end
 
+
+    @testset "Test operators with LtrAsc0NBasis" begin
+
+        basis = LtrAscBasis0N(3, 4)
+
+        tunnel_spmatrix(1,2, basis)
+        number_spmatrix(1, basis)
+
+
+    end
+
 end
 
 
 @testset "Test Hamiltonian creation" begin
+
+
 
     @testset "create tunnel matrices dimer N=1" begin
         N = 1
@@ -413,17 +501,17 @@ end
         N = 1
         k = 3
 
-        function f_H_correct(J)
+        function f_H_correct(J,eps)
             H = Matrix{Float64}(I, 3, 3)
-            H[1,1] = 0
+            H[1,1] = eps[3]
             H[1,2] = -J[2]
             H[1,3] = 0
             H[2,1] = -J[2]
-            H[2,2] = 0
+            H[2,2] = eps[2]
             H[2,3] = -J[1]
             H[3,1] = 0
             H[3,2] = -J[1]
-            H[3,3] = 0
+            H[3,3] = eps[1]
 
             H *= 0.5
 
@@ -433,6 +521,8 @@ end
         # Create test values
         J_arr = -5:1:5
         J_arr = Iterators.product(J_arr, J_arr)
+        eps_arr = -0.25:0.25:0.25
+        eps_arr = Iterators.product(eps_arr, eps_arr, eps_arr)
 
         # Prepare the system
         basis = LtrAscBasis(k, N)
@@ -440,10 +530,12 @@ end
         bhh = BoseHubbardHamiltonian(graph, basis)
 
         for J in J_arr
-            H_corr = f_H_correct(J)
-            H_calc = matrix(bhh, J,[0,0,0])
+            for eps in eps_arr
+                H_corr = f_H_correct(J, eps)
+                H_calc = matrix(bhh,J,eps,[0,0,0])
 
-            @test H_corr == H_calc
+                @test H_corr == H_calc
+            end
         end
     end
 
@@ -453,53 +545,58 @@ end
         N = 2
         k = 3
 
-        function f_H_correct(J,U)
+        function f_H_correct(J,eps,U)
             H = Matrix{Float64}(I, 6, 6)
-            H[1,1] = U[3]
+            H[1,1] = U[3] + eps[3]
             H[1,2] = -J[2]/sqrt(2)
             H[1,3] = 0
             H[1,4] = 0
             H[1,5] = 0
             H[1,6] = 0
             H[2,1] = -J[2]/sqrt(2)
-            H[2,2] = 0
+            H[2,2] = (eps[2] + eps[3])/2
             H[2,3] = -J[2]/sqrt(2)
             H[2,4] = -J[1]*0.5
             H[2,5] = 0
             H[2,6] = 0
             H[3,1] = 0
             H[3,2] = -J[2]/sqrt(2)
-            H[3,3] = U[2]
+            H[3,3] = U[2] + eps[2]
             H[3,4] = 0
             H[3,5] = -J[1]/sqrt(2)
             H[3,6] = 0
             H[4,1] = 0
             H[4,2] = -J[1]*0.5
             H[4,3] = 0
-            H[4,4] = 0
+            H[4,4] = (eps[1] + eps[3])/2
             H[4,5] = -J[2]*0.5
             H[4,6] = 0
             H[5,1] = 0
             H[5,2] = 0
             H[5,3] = -J[1]/sqrt(2)
             H[5,4] = -J[2]*0.5
-            H[5,5] = 0
+            H[5,5] = (eps[1] + eps[2])/2
             H[5,6] = -J[1]/sqrt(2)
             H[6,1] = 0
             H[6,2] = 0
             H[6,3] = 0
             H[6,4] = 0
             H[6,5] = -J[1]/sqrt(2)
-            H[6,6] = U[1]
+            H[6,6] = U[1] + eps[1]
 
             return H
         end
 
         # Define test values
         U_arr = 0:2:5
+        #U_arr = 1
         U_arr = Iterators.product(U_arr,U_arr,U_arr)
         J_arr = 0:2:5
+        #J_arr = 2
         J_arr = Iterators.product(J_arr,J_arr)
+        eps_arr = -0.25:0.25:0.25
+        #eps_arr = 3
+        eps_arr = Iterators.product(eps_arr, eps_arr, eps_arr)
 
         # Prepare the system
         basis = LtrAscBasis(k, N)
@@ -508,11 +605,13 @@ end
 
         for U in U_arr
             for J in J_arr
+                for eps in eps_arr
 
-                H_corr = f_H_correct(J, U)
-                H_calc = matrix(bhh, J, U)
+                    H_corr = f_H_correct(J, eps, U)
+                    H_calc = matrix(bhh, J, eps, U)
 
-                @test isapprox(H_corr, H_calc; atol=1e-14)
+                    @test isapprox(H_corr, H_calc; atol=1e-14)
+                end
             end
         end
     end
