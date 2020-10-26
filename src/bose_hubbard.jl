@@ -140,7 +140,7 @@ function getstate(basis::PonomarevBasis, index::Integer)
     getstate!(state, basis, index)
 end
 
-function getstate!(state::AbstractVector{<:Integer}, basis::PonomarevBasis, index::Integer)
+function getstate!(state::AbstractVector, basis::PonomarevBasis, index::Integer)
     k = basis.k
     N = basis.N
 

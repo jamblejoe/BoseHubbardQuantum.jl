@@ -96,6 +96,7 @@ end
         end
     end
 
+
     @testset "index map is surjective" begin
     for k in 3:6
         for N in 2:10
@@ -105,6 +106,18 @@ end
             @test all(indices .== 1:bose_hubbard_hilbert_space_size(k,N))
         end
         end
+    end
+
+    @testset "getstate! with views" begin
+        k = 6
+        N = 10
+        D = bose_hubbard_hilbert_space_size(k,N)
+        basis = PonomarevBasis(k,N)
+        basis_states = zeros(k,D)
+        for i in 1:D
+            @views getstate!(basis_states[:,i], basis, i)
+        end
+
     end
 
 
