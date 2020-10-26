@@ -1,10 +1,11 @@
 module BoseHubbardQuantum
 
-# TODO:
-#   implement on the fly Hamiltonian creation for big systems
-#   make basis creation multithreaded (req. Julia 1.3+)
-#
+#=
+    TODO:
+        - implement on the fly Hamiltonian creation for big systems
+        - make basis creation multithreaded (req. Julia 1.3+)
 
+=#
 using LinearAlgebra
 using LightGraphs
 using SparseArrays
@@ -13,7 +14,8 @@ using SparseArrays
 # basis
 export bose_hubbard_hilbert_space_size
 export AbstractBasis, get_or_create_basis
-export LtrAscBasis, LtrAscBasis0N
+export LtrAscBasis, PonomarevBasis, LtrAscBasis0N
+export getposition, getstate, getstate!
 
 # graphs
 export dimer_graph, trimer_graph, k_chain_graph

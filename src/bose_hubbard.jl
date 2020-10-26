@@ -3,27 +3,31 @@
 # Basis
 #
 ##############################################################################
-import Base: length, iterate, enumerate, isequal, getindex
+import Base: length, iterate, isequal, getindex
 
 """
 For given number of particles N and site count k returns the size of the Hilbert space
 The Hilbert space size is binom(N+k-1, k-1).
 """
-function bose_hubbard_hilbert_space_size(N::Integer, k::Integer)
+function bose_hubbard_hilbert_space_size(k::Integer, N::Integer)
   return binomial(N+k-1,k-1)
 end
 
 function bose_hubbard_hilbert_space_size(parameters::Dict)
     k = parameters["k"]
     N = parameters["N"]
-  return bose_hubbard_hilbert_space_size(N, k)
+  return bose_hubbard_hilbert_space_size(k, N)
 end
+
 
 
 # Abstract Basis is not implemented yet and is just a placeholder
 # one should think of AbstractBasis needing to be abstract type
 # or needing to have fields
 abstract type AbstractBasis end
+
+##############################################################################
+
 
 struct LtrAscBasis <: AbstractBasis
 	k::Int
@@ -52,7 +56,7 @@ function LtrAscBasis(k::Integer, N::Integer)
 
 	@assert k>0
     @assert N>0
-    D = bose_hubbard_hilbert_space_size(N, k)
+    D = bose_hubbard_hilbert_space_size(k, N)
 
 	# create the basis
 	state = zeros(typeof(N), k)
@@ -80,18 +84,102 @@ end
 
 length(basis::LtrAscBasis) = length(basis.basis)
 sites(basis::LtrAscBasis) = basis.k
-enumerate(basis::LtrAscBasis) = enumerate(basis.basis)
+iterate(basis::LtrAscBasis) = iterate(basis.basis)
+iterate(basis::LtrAscBasis, state) = iterate(basis.basis, state)
 isequal(b1::LtrAscBasis, b2::LtrAscBasis) = b1.k == b2.k && b1.N == b2.N
 
-getindex(basis::LtrAscBasis, state::AbstractVector) = basis.index[state]
+getposition(basis::LtrAscBasis, state::AbstractVector) = basis.index[state]
 
+
+##############################################################################
+
+"""
+https://arxiv.org/pdf/1410.7280.pdf
+"""
+struct PonomarevBasis <: AbstractBasis
+    k::Int
+    N::Int
+end
+
+PonomarevBasis(parameters::Dict) = PonomarevBasis(parameters["k"], parameters["N"])
+
+length(basis::PonomarevBasis) = bose_hubbard_hilbert_space_size(basis.k,basis.N)
+sites(basis::PonomarevBasis) = basis.k
+isequal(b1::PonomarevBasis, b2::PonomarevBasis) = b1.k == b2.k && b1.N == b2.N
+
+#=
+Think of caching, precomputing the binomials. Pascals triangle?
+=#
+"""
+Returns the position of a state in the basis.
+"""
+function getposition(basis::PonomarevBasis, state::AbstractVector)
+    k = basis.k
+    N = basis.N
+
+    @assert length(state) == k
+    @assert all(0 .<= state .<= N)
+    @assert sum(state) == N
+    
+    index = 1
+    l = N
+    for (m_l,n_i) in enumerate(state)
+        for _ in 1:n_i
+            index += bose_hubbard_hilbert_space_size(k-m_l, l)
+            l -= 1
+        end
+    end
+    index
+end
+
+"""
+Returns state of the basis with position index.
+"""
+function getstate(basis::PonomarevBasis, index::Integer)
+    state = zeros(Int, basis.k)
+    getstate!(state, basis, index)
+end
+
+function getstate!(state::AbstractVector{<:Integer}, basis::PonomarevBasis, index::Integer)
+    k = basis.k
+    N = basis.N
+
+    @assert 1 <= index <= length(basis) "index $index out of bounds [1,$(length(basis))]"
+
+    state .= 0
+
+    for i in N:-1:1
+        m_i = 0
+        while bose_hubbard_hilbert_space_size(m_i+1,i) < index
+            m_i += 1
+        end
+        state[k-m_i] += 1
+        index -= bose_hubbard_hilbert_space_size(m_i,i)
+    end
+    state
+end
+
+
+"""
+Returns the basis element at position index.
+"""
+getindex(basis::PonomarevBasis, index::Integer) = getstate(basis::PonomarevBasis, index::Integer)
+
+
+function iterate(basis::PonomarevBasis, state=1)
+    count = state
+    count > length(basis) ? nothing : ( getstate(basis, count), count+1 )
+end
+
+
+##############################################################################
 
 struct LtrAscBasis0N <: AbstractBasis
 	k::Int
 	N::Int
 end
 
-LtrAscBasis0N(parameters::Dict) = LtrAscBasis0N(k,N)
+LtrAscBasis0N(parameters::Dict) = LtrAscBasis0N(parameters["k"], parameters["N"])
 
 length(basis::LtrAscBasis0N) = (basis.N+1)^basis.k
 sites(basis::LtrAscBasis0N) = basis.k
@@ -108,11 +196,11 @@ function iterate(basis::LtrAscBasis0N, state=(zeros(Int, basis.k), 1))
 		return nothing
 	end
 
-	(basis_state, (reverse(digits(count, base = N+1, pad = k)), count+1) )
+	(basis_state, ( reverse(digits(count, base = N+1, pad = k)) , count+1 ) )
 end
 isequal(b1::LtrAscBasis0N, b2::LtrAscBasis0N) = b1.k == b2.k && b1.N == b2.N
 
-function getindex(basis::LtrAscBasis0N, state::AbstractVector)
+function getposition(basis::LtrAscBasis0N, state::AbstractVector)
 	k = basis.k
 	N = basis.N
 
@@ -124,6 +212,10 @@ function getindex(basis::LtrAscBasis0N, state::AbstractVector)
 	end
 	index
 end
+
+
+##############################################################################
+
 
 
 
@@ -244,7 +336,7 @@ function tunnel_spmatrix(source::Integer, destination::Integer,
         if all(x -> 0 <= x <= N, neighbouring_state)
 
             # get the index of the neighbouring state
-            neighbour_index = getindex(basis, neighbouring_state)
+            neighbour_index = getposition(basis, neighbouring_state)
 
             # store the indeces
             push!(rows, neighbour_index)
@@ -573,7 +665,7 @@ function spmatrix(bhh::BoseHubbardHamiltonian, J, eps, U)
     tunnel = bhh.tunnel
     potential = bhh.potential
 
-    D = bose_hubbard_hilbert_space_size(N, k)
+    D = bose_hubbard_hilbert_space_size(k, N)
 
     @assert length(J) == length(tunnel) "Number of tunnel parameters must be $(length(tunnel))"
 	@assert length(eps) == length(potential) "Number of on-site potential parameters must be $(length(potential))"
@@ -631,7 +723,7 @@ Operator O
 """
 function partialtr(k::Integer, N::Integer, k_B::Integer, O::AbstractMatrix)
 
-	D = bose_hubbard_hilbert_space_size(N, k)
+	D = bose_hubbard_hilbert_space_size(k, N)
 
 	@assert size(O)[1] == size(O)[2] == D
 	@assert 1 <= k_B <= k
