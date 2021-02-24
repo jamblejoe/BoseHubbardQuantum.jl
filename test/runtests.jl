@@ -15,6 +15,33 @@ import BoseHubbardQuantum: tunnel_spmatrices
 
 @testset "LtrAscBasis" begin
 
+    @testset "length" begin
+        for k in 3:5
+        for Nmin in 2:10
+        for Nmax in Nmin:10
+            basis = LtrAscBasis(k, Nmin, Nmax)
+            l = 0
+            for _ in basis
+                l += 1
+            end
+            @test l == length(basis)
+        end
+        end
+        end
+
+        Nmin = 0
+        for k in 3:5
+        for Nmax in Nmin:10
+            basis = LtrAscBasis(k, Nmin, Nmax)
+            l = 0
+            for _ in basis
+                l += 1
+            end
+            @test l == bose_hubbard_hilbert_space_size(k, Nmin, Nmax)
+        end
+        end
+    end
+
 
     @testset "N=1, k=1" begin
         # Define the correct basis list
@@ -35,6 +62,47 @@ import BoseHubbardQuantum: tunnel_spmatrices
         basis_calc = LtrAscBasis(3,2).basis
         @test basis_corr == basis_calc
     end
+
+    @testset "k=2, Nmin=0, Nmax=1" begin
+        # Define the correct basis list
+        basis_corr = [[0,0],[0,1],[1,0]]
+        basis_calc = LtrAscBasis(2,0,1).basis
+
+        @test basis_corr == basis_calc
+    end
+
+    @testset "k=3, Nmin=0, Nmax=2" begin
+        # Define the correct basis list
+        basis_corr = [[0,0,0],
+                      [0,0,1],
+                      [0,1,0],
+                      [1,0,0],
+                      [0,0,2],
+                      [0,1,1],
+                      [0,2,0],
+                      [1,0,1],
+                      [1,1,0],
+                      [2,0,0]]
+        basis_calc = LtrAscBasis(3,0,2).basis
+        @test basis_corr == basis_calc
+    end
+
+    @testset "k=3, Nmin=1, Nmax=2" begin
+        # Define the correct basis list
+        basis_corr = [[0,0,1],
+                      [0,1,0],
+                      [1,0,0],
+                      [0,0,2],
+                      [0,1,1],
+                      [0,2,0],
+                      [1,0,1],
+                      [1,1,0],
+                      [2,0,0]]
+        basis_calc = LtrAscBasis(3,1,2).basis
+        @test basis_corr == basis_calc
+    end
+
+
 end
 
 
@@ -124,7 +192,7 @@ end
 
 end
 
-
+#=
 @testset "LtrAsc0NBasis" begin
 
     @testset "length" begin
@@ -195,6 +263,7 @@ end
 
 
 end
+=#
 
 @testset "Test operators" begin
     @testset "tunnel operators" begin
@@ -425,8 +494,6 @@ end
     end
 
     #=
-        This needs more/better tests
-    =#
     @testset "Test operators with LtrAsc0NBasis" begin
 
         basis = LtrAscBasis0N(3, 4)
@@ -436,6 +503,7 @@ end
 
 
     end
+    =#
 
 end
 

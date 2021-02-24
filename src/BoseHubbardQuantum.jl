@@ -23,6 +23,7 @@ export dimer_graph, trimer_graph, k_chain_graph
 # operators
 export tunnel_operator, tunnel_symm_operator, number_operator, kinetic_operator
 export tunnel_spmatrix, tunnel_symm_spmatrix, number_spmatrix, kinetic_spmatrix
+export creation_spmatrix, annihilation_spmatrix
 
 # bosehubbard hamiltonian
 export BoseHubbardHamiltonian, BoseHubbardHamiltonianChain

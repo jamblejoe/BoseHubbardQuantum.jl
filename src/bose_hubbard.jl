@@ -3,7 +3,7 @@
 # Basis
 #
 ##############################################################################
-import Base: length, iterate, isequal, getindex
+import Base: length, iterate, isequal, getindex, in
 
 """
 For given number of particles N and site count k returns the size of the Hilbert space
@@ -11,6 +11,11 @@ The Hilbert space size is binom(N+k-1, k-1).
 """
 function bose_hubbard_hilbert_space_size(k::Integer, N::Integer)
   return binomial(N+k-1,k-1)
+end
+
+function bose_hubbard_hilbert_space_size(k::Integer, Nmin::Integer, Nmax::Integer)
+    Nmin != 0 && throw(DomainError(Nmin, "Only implemented for Nmin=0!"))
+    return binomial(Nmax+k,k)
 end
 
 function bose_hubbard_hilbert_space_size(parameters::Dict)
@@ -31,7 +36,9 @@ abstract type AbstractBasis end
 
 struct LtrAscBasis <: AbstractBasis
 	k::Int
-	N::Int
+    N::Int      # keep this for convinience and to not break old code
+    Nmin::Int
+    Nmax::Int
 	basis::Vector{Vector{Int}}
 	index::Dict{Vector{Int}, Int}
 end
@@ -52,23 +59,32 @@ function LtrAscBasis(parameters::Dict)
   LtrAscBasis(k,N)
 end
 
-function LtrAscBasis(k::Integer, N::Integer)
+LtrAscBasis(k::Integer, N::Integer) = LtrAscBasis(k, N, N)
+function LtrAscBasis(k::Integer, Nmin::Integer, Nmax::Integer)
 
 	@assert k>0
-    @assert N>0
-    D = bose_hubbard_hilbert_space_size(k, N)
+    @assert Nmax >= Nmin >=0
+    @assert typeof(Nmin) == typeof(Nmax)
+
+    #D = bose_hubbard_hilbert_space_size(k, N)
 
 	# create the basis
-	state = zeros(typeof(N), k)
+	state = zeros(typeof(Nmax), k)
     basis = typeof(state)[]
 
-    ltr_asc_loop!(basis, state, N, 1)
+    for N in Nmin:Nmax
+        ltr_asc_loop!(basis, state, N, 1)
+    end
 	# calculate the index
 	index = create_basis_index(basis)
 
-    return LtrAscBasis(k, N, basis, index)
+    return LtrAscBasis(k, Nmax, Nmin, Nmax, basis, index)
 end
 
+# can this be improved by making it non-recursive?
+# see:
+# https://github.com/georglind/bosehubbard/blob/master/bosehubbard.py
+# http://iopscience.iop.org/article/10.1088/0143-0807/31/3/016
 function ltr_asc_loop!(basis, state, n::Integer, pos::Integer)
     k = length(state)
     if pos < k
@@ -89,6 +105,7 @@ iterate(basis::LtrAscBasis, state) = iterate(basis.basis, state)
 isequal(b1::LtrAscBasis, b2::LtrAscBasis) = b1.k == b2.k && b1.N == b2.N
 
 getposition(basis::LtrAscBasis, state::AbstractVector) = basis.index[state]
+in(state::AbstractVector, basis::LtrAscBasis) = haskey(basis.index, state)
 
 
 ##############################################################################
@@ -117,10 +134,10 @@ function getposition(basis::PonomarevBasis, state::AbstractVector)
     k = basis.k
     N = basis.N
 
-    @assert length(state) == k
-    @assert all(0 .<= state .<= N)
-    @assert sum(state) == N
-    
+    length(state) == k || throw(DomainError(k, "length of state must be $k"))
+    all(0 .<= state .<= N) || throw(DomainError(N, "components of state must be between 0 and $N"))
+    sum(state) == N || throw(DomainError(N, "components of state must sum to $N"))
+
     index = 1
     l = N
     for (m_l,n_i) in enumerate(state)
@@ -174,41 +191,48 @@ end
 
 ##############################################################################
 
-struct LtrAscBasis0N <: AbstractBasis
+
+struct LtrAscCutoffBasis <: AbstractBasis
 	k::Int
-	N::Int
+	d::Int
 end
+"""
+Basis which has no restriction on number of particles but to make it finite
+there is a cutoff d on each site, i.e. on each site are maximal d particles.
+The cutoff makes sense for positive U, as a lot of particles on one site are
+energetically punished. I think this makes the most sense when some product of
+cutoff d and U is big enough.
+"""
+LtrAscCutoffBasis(parameters::Dict) = LtrAscCutoffBasis(parameters["k"], parameters["d"])
 
-LtrAscBasis0N(parameters::Dict) = LtrAscBasis0N(parameters["k"], parameters["N"])
-
-length(basis::LtrAscBasis0N) = (basis.N+1)^basis.k
-sites(basis::LtrAscBasis0N) = basis.k
+length(basis::LtrAscCutoffBasis) = (basis.d+1)^basis.k
+sites(basis::LtrAscCutoffBasis) = basis.k
 #=
 This probably can be made non-allocating
 =#
-function iterate(basis::LtrAscBasis0N, state=(zeros(Int, basis.k), 1))
+function iterate(basis::LtrAscCutoffBasis, state=(zeros(Int, basis.k), 1))
 	k = basis.k
-	N = basis.N
+	d = basis.d
 	basis_state, count = state
 
 
-	if count > (N+1)^k
+	if count > (d+1)^k
 		return nothing
 	end
 
-	(basis_state, ( reverse(digits(count, base = N+1, pad = k)) , count+1 ) )
+	(basis_state, ( reverse(digits(count, base = d+1, pad = k)) , count+1 ) )
 end
-isequal(b1::LtrAscBasis0N, b2::LtrAscBasis0N) = b1.k == b2.k && b1.N == b2.N
+isequal(b1::LtrAscCutoffBasis, b2::LtrAscCutoffBasis) = b1.k == b2.k && b1.d == b2.d
 
-function getposition(basis::LtrAscBasis0N, state::AbstractVector)
+function getposition(basis::LtrAscCutoffBasis, state::AbstractVector)
 	k = basis.k
-	N = basis.N
+	d = basis.d
 
 	@assert length(state) == k
-	@assert all(0 .<= state .<= N)
+	@assert all(0 .<= state .<= d)
 	index = 1
 	for i in eachindex(state)
-		index += (N+1)^(k-i) * state[i]
+		index += (d+1)^(k-i) * state[i]
 	end
 	index
 end
@@ -218,6 +242,11 @@ end
 
 
 
+
+
+
+
+##############################################################################
 
 STD_BASIS = LtrAscBasis
 
@@ -287,6 +316,96 @@ end
 ##############################################################################
 
 """
+Creates a sparse matrix representing the creation operator on site index with
+respect to the given basis.
+"""
+function creation_spmatrix(index::Integer, basis::AbstractBasis)
+
+	k = basis.k
+
+    @assert 1 <= index <= k
+
+    # operator acting on basis state by elementwise addition
+    op = zeros(Int, k)
+    op[index] = 1
+
+    rows = Int[]
+    cols = Int[]
+    values = Float64[]	# is Float64 really necessary here?
+
+
+    for (i,state) in enumerate(basis)
+
+        dst_state = op .+ state
+
+        if dst_state in basis
+            # get the index of the destination state
+            dst_index = getposition(basis, dst_state)
+
+            # store the indices
+            push!(rows, dst_index)
+            push!(cols, i)
+
+            # calculate and store the value
+            value = sqrt((state[index]+1))
+            push!(values, value)
+
+        end
+    end
+
+    # create the sparse matrix from the rows/columns/values
+    return sparse(rows, cols, values, length(basis), length(basis))
+
+end
+
+
+
+"""
+Creates a sparse matrix representing the creation operator on site index with
+respect to the given basis.
+"""
+function annihilation_spmatrix(index::Integer, basis::AbstractBasis)
+
+	k = basis.k
+
+    @assert 1 <= index <= k
+
+    # create the tunneling vector
+    op = zeros(Int, k)
+    op[index] = -1
+
+    rows = Int[]
+    cols = Int[]
+    values = Float64[]	# is Float64 really necessary here?
+
+
+    for (i,state) in enumerate(basis)
+
+        dst_state = op .+ state
+
+        if dst_state in basis
+            dst_index = getposition(basis, dst_state)
+
+            # store the indices
+            push!(rows, dst_index)
+            push!(cols, i)
+
+            # calculate and store the value
+            value = sqrt((state[index]))
+            push!(values, value)
+
+        end
+    end
+
+    # create the sparse matrix from the rows/columns/values
+    return sparse(rows, cols, values, length(basis), length(basis))
+
+end
+
+
+
+
+"""
 Creates a tunnel operator from source to destination in the standard basis.
 """
 function tunnel_operator(source::Integer, destination::Integer, parameters::Dict)
@@ -306,7 +425,7 @@ function tunnel_spmatrix(source::Integer, destination::Integer,
 	#@assert typeof(source) == typeof(destination)
 
 	k = basis.k
-	N = basis.N
+	#N = basis.N
 
     basis_length = length(basis)
     basis_element_length = k
@@ -332,8 +451,8 @@ function tunnel_spmatrix(source::Integer, destination::Integer,
         # let the tunneling operator act on the basis_element
         neighbouring_state = tunnel_operator .+ basis_element
 
-        # check if the "tunneled"/neighbouring state is a valid state
-        if all(x -> 0 <= x <= N, neighbouring_state)
+
+        if neighbouring_state in basis
 
             # get the index of the neighbouring state
             neighbour_index = getposition(basis, neighbouring_state)
@@ -394,7 +513,6 @@ Creates a sparse matrix representing the kinetic operator in the given basis.
 """
 function kinetic_spmatrix(basis::AbstractBasis)
 	k = basis.k
-	N = basis.N
 
 	@assert k > 1
 
@@ -426,8 +544,7 @@ Create a sparse matrix representing the number operator on the
 given site in the given basis.
 """
 function number_spmatrix(site::Integer, basis::AbstractBasis)
-		k = basis.k
-		basis_length = length(basis)
+    k = basis.k
 
     @assert 1 <= site <= k
 
@@ -438,6 +555,28 @@ function number_spmatrix(site::Integer, basis::AbstractBasis)
 
     for (i, basis_element) in enumerate(basis)
         value = basis_element[site]
+        if value != 0
+            push!(diags, i)
+            push!(values, value)
+        end
+    end
+
+    number = sparse(diags, diags, values, length(basis), length(basis))
+
+    return number
+end
+
+function total_number_spmatrix(basis::AbstractBasis)
+    k = basis.k
+    basis_length = length(basis)
+
+    # create arrays to store the indices and values of the sparse matrix
+    # matrix will only have diagonal non-zero entries
+    diags = Int[]
+    values = Float64[]  # again, really necessary?
+
+    for (i, basis_element) in enumerate(basis)
+        value = sum(basis_element)
         if value != 0
             push!(diags, i)
             push!(values, value)
@@ -462,8 +601,10 @@ N particles and
 k sites.
 """
 struct BoseHubbardHamiltonian
-    N 			# the number of particles
+    #N 			# the number of particles
     k 			# the number of sites
+    #D           # Dimension of the system, i.e. the length of the underlying basis
+    basis       # the underlying basis
     tunnel 		# stores the tunneling matrices defined by the edges of given graphs
     #interaction # stores the interaction matrices defined by the nodes of given graph
 	potential   # stores the potential matrices defined by the nodes of the given graph
@@ -472,10 +613,11 @@ end
 function BoseHubbardHamiltonian(graph, basis::AbstractBasis)
 
     k = basis.k
-	N = basis.N
+    #N = basis.N
+    #D = length(basis)
 
 	@assert k>0
-  	@assert N>0
+  	#@assert N>0
 	@assert k == nv(graph)
 
 
@@ -484,7 +626,7 @@ function BoseHubbardHamiltonian(graph, basis::AbstractBasis)
 	potential = potential_spmatrices(graph, basis)
 
     #return BoseHubbardHamiltonian(N, k, tunnel, interaction)
-	return BoseHubbardHamiltonian(N, k, tunnel, potential)
+	return BoseHubbardHamiltonian(k, basis, tunnel, potential)
 
 end
 
@@ -660,18 +802,22 @@ Hamiltonian
 """
 function spmatrix(bhh::BoseHubbardHamiltonian, J, eps, U)
 
-    N = bhh.N
-    k = bhh.k
+    #N = bhh.N
+    #k = bhh.k
+    basis = bhh.basis
     tunnel = bhh.tunnel
     potential = bhh.potential
 
-    D = bose_hubbard_hilbert_space_size(k, N)
+    #D = bose_hubbard_hilbert_space_size(k, N)
+    D = length(basis)
 
     @assert length(J) == length(tunnel) "Number of tunnel parameters must be $(length(tunnel))"
 	@assert length(eps) == length(potential) "Number of on-site potential parameters must be $(length(potential))"
     @assert length(U) == length(potential) "Number of on-site interaction parameters must be $(length(potential))"
 
-    H = spzeros(D, D)
+    #H = similar(tunnel[1])
+    #H .= 0
+    H = spzeros(D,D)
 	# tunnel part
     for i in 1:length(tunnel)
         H += -J[i] * tunnel[i]
@@ -704,6 +850,34 @@ function spmatrix(bhh::BoseHubbardHamiltonian, J, U)
 end
 
 
+##############################################################################
+#
+# exponentials of Bose-Hubbard Hamiltonian
+#
+##############################################################################
+
+exp_scaled(c::Number, F::Eigen) = exp_scaled(c, F.values, F.vectors)
+
+function exp_scaled(c::Number, eigenvalues::AbstractVector, eigenstates::AbstractMatrix)
+	#exp!(similar(eigenstates), c, eigenvalues, eigenstates)
+	eigenstates * Diagonal(exp.(c .* eigenvalues)) * eigenstates'
+end
+
+
+
+#function myexp!(res::AbstractMatrix, c::Number, eigenvalues::AbstractVector, eigenstates::AbstractMatrix)
+	#res .= eigenstates'
+	#res .*= c .* eigenvalues
+	#mul!(res, )
+	#mul!(res, eigenstates, (exp.(c .* eigenvalues) .* eigenstates'))
+#	res .= eigenstates * Diagonal(exp.(c .* eigenvalues)) * eigenstates'
+#	res
+#end
+
+
+
+
+
 
 
 
@@ -713,6 +887,22 @@ end
 #
 ##############################################################################
 
+#
+# The caching structure should be thought more about
+#
+
+struct PartialtrCache
+	basis_full
+	bases_A
+end
+
+function PartialtrCache(k, N, k_A)
+	basis_full=LtrAscBasis(k, N)
+	bases_A=[LtrAscBasis(k_A, n) for n in 0:N]
+	PartialtrCache(basis_full, bases_A)
+end
+
+
 """
 ONLY WORKS FOR 1D CHAINS
 NOT OPTIMIZED
@@ -721,6 +911,7 @@ traces out subsystem B and returns O acting on A
 
 Operator O
 """
+#=
 function partialtr(k::Integer, N::Integer, k_B::Integer, O::AbstractMatrix)
 
 	D = bose_hubbard_hilbert_space_size(k, N)
@@ -732,38 +923,144 @@ function partialtr(k::Integer, N::Integer, k_B::Integer, O::AbstractMatrix)
 
 	basis_full = LtrAscBasis(k, N)
 	basis_full_index = create_basis_index(basis_full)
-	basis_A = LtrAscBasis0N(k_A, N)
+	basis_A = LtrAscBasis(k_A, 0, N)
 	D_A = length(basis_A)
 
 	O_A = zeros(D_A,D_A)
 	state_row_cache = zeros(k)
 	state_col_cache = zeros(k)
 
+
 	for (i, state_A_col) in enumerate(basis_A)
-		N_i = sum(state_A_col)
+        N_i = sum(state_A_col)
 		state_col_cache[1:k_A] .= state_A_col
 
 		for (j, state_A_row) in enumerate(basis_A)
 			N_j = sum(state_A_row)
 			state_row_cache[1:k_A] .= state_A_row
 
+            if N_i == N_j
+                for state_B in LtrAscBasis(k_B, N-N_i)
+                    state_col_cache[k_A+1:end] .= state_B
+                    state_row_cache[k_A+1:end] .= state_B
 
-			for state_B_col in LtrAscBasis(k_b, N-N_i)
-				state_col_cache[k_A+1:end] .= state_B_col
+                    O_ind_col = basis_full_index[state_col_cache]
+                    O_ind_row = basis_full_index[state_row_cache]
+                    O_A[j,i] += O[O_ind_row, O_ind_col]
 
-				O_ind_col = basis_full_index[state_col_cache]
-
-				for state_B_row in LtrAscBasis(k_b, N-N_j)
-					state_row_cache[k_A+1:end] .= state_B_row
-
-					O_ind_row = basis_full_index[state_row_cache]
-
-					O_A[j,i] += O[O_ind_row, O_ind_col]
-				end
-			end
+                    #for state_B_row in LtrAscBasis(k_B, N-N_j)
+                    #	state_row_cache[k_A+1:end] .= state_B_row
+                    #
+                    #	O_ind_row = basis_full_index[state_row_cache]
+                    #
+                    #	O_A[j,i] += O[O_ind_row, O_ind_col]
+                    #end
+                end
+            end
 
 		end
 	end
 
 	return O_A
+end
+=#
+
+function partialtr(k::Integer, N::Integer, k_A::Integer, O::AbstractMatrix)
+    D_A = bose_hubbard_hilbert_space_size(k_A, 0, N)
+    O_A = zeros(D_A,D_A)
+    return partialtr!(O_A, k, N, k_A, O)
+end
+
+function partialtr!(O_A::AbstractMatrix, k::Integer, N::Integer, k_A::Integer, O::AbstractMatrix;
+		cache::PartialtrCache=PartialtrCache(k, N, k_A)
+    )
+
+	basis_full = cache.basis_full
+	bases_A = cache.bases_A
+
+    O_A .= 0
+
+	D = bose_hubbard_hilbert_space_size(k, N)
+
+	@assert size(O)[1] == size(O)[2] == D
+	@assert 1 <= k_A <= k
+
+	k_B = k - k_A
+
+	#basis_full = LtrAscBasis(k, N)
+    #basis_full_index = create_basis_index(basis_full)
+
+	#basis_A = [LtrAscBasis(k_A, n) for n in 0:N]
+	#D_A = bose_hubbard_hilbert_space_size(k_A, 0, N)
+
+	#O_A = zeros(D_A,D_A)
+	state_row_cache = zeros(k)
+	state_col_cache = zeros(k)
+
+    offset = 0
+    for basis_A in bases_A
+
+        for (i, state_A_col) in enumerate(basis_A)
+            N_i = sum(state_A_col)
+            state_col_cache[1:k_A] .= state_A_col
+
+            for (j, state_A_row) in enumerate(basis_A)
+                N_j = sum(state_A_row)
+                state_row_cache[1:k_A] .= state_A_row
+
+                for state_B in LtrAscBasis(k_B, N-N_i)
+                    state_col_cache[k_A+1:end] .= state_B
+                    state_row_cache[k_A+1:end] .= state_B
+
+                    #O_ind_col = basis_full_index[state_col_cache]
+                    #O_ind_row = basis_full_index[state_row_cache]
+					O_ind_col = getposition(basis_full, state_col_cache)
+                    O_ind_row = getposition(basis_full, state_row_cache)
+                    O_A[offset+j,offset+i] += O[O_ind_row, O_ind_col]
+
+                    #for state_B_row in LtrAscBasis(k_B, N-N_j)
+                    #	state_row_cache[k_A+1:end] .= state_B_row
+                    #
+                    #	O_ind_row = basis_full_index[state_row_cache]
+                    #
+                    #	O_A[j,i] += O[O_ind_row, O_ind_col]
+                    #end
+                end
+
+
+            end
+        end
+
+        offset += length(basis_A)
+    end
+
+	return O_A
+end
+
+function partialtr(k::Integer, N::Integer, k_A::Integer, ψ::AbstractVector)
+	D_A = bose_hubbard_hilbert_space_size(k_A,0,N)
+	O_A = zeros(D_A, D_A)
+	partialtr!(O_A, k, N, k_A, ψ)
+end
+
+
+
+function partialtr!(O_A::AbstractMatrix, k::Integer, N::Integer, k_A::Integer, ψ::AbstractVector;
+        basis_full=LtrAscBasis(k, N),
+		basis_A = LtrAscBasis(k_A, 0, N),
+		basis_B = LtrAscBasis(k-k_A, 0, N),
+		sqrtρ = zeros(length(basis_A), length(basis_B))
+    )
+
+	# this is for safety purposes to ensure that sqrtρ really is initialized
+	# with zeros
+	sqrtρ .= 0
+
+	for (i, state) in enumerate(basis_full)
+		j = getposition(basis_A, state[1:k_A])
+		l = getposition(basis_B, state[k_A+1:end])
+		sqrtρ[j,l] = ψ[i]
+	end
+
+	mul!(O_A, sqrtρ, transpose(sqrtρ))
 end
