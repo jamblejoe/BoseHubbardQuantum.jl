@@ -314,14 +314,21 @@ end
 # Various operators
 #
 ##############################################################################
+"""
+Creates a sparse matrix representing the creation operator on site index with
+respect to a given basis.
+"""
+creation_spmatrix(index::Integer, basis::AbstractBasis) = creation_spmatrix(index, basis, basis)
 
 """
 Creates a sparse matrix representing the creation operator on site index with
-respect to the given basis.
+respect to given bases. The matrix will be mapping from basis1 to basis2, i.e.
+the domain is basis1 and the codomain is basis2.
 """
-function creation_spmatrix(index::Integer, basis::AbstractBasis)
+function creation_spmatrix(index::Integer, basis1::AbstractBasis, basis2::AbstractBasis)
 
-	k = basis.k
+	k = basis1.k
+	@assert k == basis2.k
 
     @assert 1 <= index <= k
 
@@ -334,13 +341,13 @@ function creation_spmatrix(index::Integer, basis::AbstractBasis)
     values = Float64[]	# is Float64 really necessary here?
 
 
-    for (i,state) in enumerate(basis)
+    for (i,state) in enumerate(basis1)
 
         dst_state = op .+ state
 
-        if dst_state in basis
+        if dst_state in basis2
             # get the index of the destination state
-            dst_index = getposition(basis, dst_state)
+            dst_index = getposition(basis2, dst_state)
 
             # store the indices
             push!(rows, dst_index)
@@ -354,20 +361,20 @@ function creation_spmatrix(index::Integer, basis::AbstractBasis)
     end
 
     # create the sparse matrix from the rows/columns/values
-    return sparse(rows, cols, values, length(basis), length(basis))
+    return sparse(rows, cols, values, length(basis2), length(basis1))
 
 end
 
 
-
+annihilation_spmatrix(index::Integer, basis::AbstractBasis) = annihilation_spmatrix(index, basis, basis)
 """
 Creates a sparse matrix representing the creation operator on site index with
 respect to the given basis.
 """
-function annihilation_spmatrix(index::Integer, basis::AbstractBasis)
+function annihilation_spmatrix(index::Integer, basis1::AbstractBasis, basis2::AbstractBasis)
 
-	k = basis.k
-
+	k = basis1.k
+	@assert k == basis2.k
     @assert 1 <= index <= k
 
     # create the tunneling vector
@@ -379,12 +386,12 @@ function annihilation_spmatrix(index::Integer, basis::AbstractBasis)
     values = Float64[]	# is Float64 really necessary here?
 
 
-    for (i,state) in enumerate(basis)
+    for (i,state) in enumerate(basis1)
 
         dst_state = op .+ state
 
-        if dst_state in basis
-            dst_index = getposition(basis, dst_state)
+        if dst_state in basis2
+            dst_index = getposition(basis2, dst_state)
 
             # store the indices
             push!(rows, dst_index)
@@ -398,7 +405,7 @@ function annihilation_spmatrix(index::Integer, basis::AbstractBasis)
     end
 
     # create the sparse matrix from the rows/columns/values
-    return sparse(rows, cols, values, length(basis), length(basis))
+    return sparse(rows, cols, values, length(basis2), length(basis1))
 
 end
 
@@ -744,6 +751,7 @@ end
 Create a vector of sparse matrices representing the on-site interaction
 of particles.
 """
+# This function is not used by the standard Hamiltonian creation anymore
 function interaction_spmatrices(graph, basis::AbstractBasis)
 
     basis_length = length(basis)
