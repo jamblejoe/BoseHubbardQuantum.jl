@@ -1,7 +1,7 @@
 name = "BoseHubbardQuantum"
 uuid = "c63aad13-acb2-4608-aa60-f5c453864ca4"
 authors = ["Goran Nakerst"]
-version = "0.6.0"
+version = "0.7.0"
 
 [deps]
 LightGraphs = "093fc24a-ae57-5d10-9952-331d41423f4d"
