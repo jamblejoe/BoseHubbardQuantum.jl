@@ -3,7 +3,7 @@
 # Basis
 #
 ##############################################################################
-import Base: length, iterate, isequal, getindex, in
+#import Base: length, iterate, isequal, getindex, in
 
 """
 For given number of particles N and site count k returns the size of the Hilbert space
@@ -98,14 +98,14 @@ function ltr_asc_loop!(basis, state, n::Integer, pos::Integer)
     end
 end
 
-length(basis::LtrAscBasis) = length(basis.basis)
+Base.length(basis::LtrAscBasis) = length(basis.basis)
 sites(basis::LtrAscBasis) = basis.k
-iterate(basis::LtrAscBasis) = iterate(basis.basis)
-iterate(basis::LtrAscBasis, state) = iterate(basis.basis, state)
-isequal(b1::LtrAscBasis, b2::LtrAscBasis) = b1.k == b2.k && b1.N == b2.N
+Base.iterate(basis::LtrAscBasis) = iterate(basis.basis)
+Base.iterate(basis::LtrAscBasis, state) = iterate(basis.basis, state)
+Base.isequal(b1::LtrAscBasis, b2::LtrAscBasis) = b1.k == b2.k && b1.N == b2.N
 
 getposition(basis::LtrAscBasis, state::AbstractVector) = basis.index[state]
-in(state::AbstractVector, basis::LtrAscBasis) = haskey(basis.index, state)
+Base.in(state::AbstractVector, basis::LtrAscBasis) = haskey(basis.index, state)
 
 
 ##############################################################################
@@ -120,9 +120,9 @@ end
 
 PonomarevBasis(parameters::Dict) = PonomarevBasis(parameters["k"], parameters["N"])
 
-length(basis::PonomarevBasis) = bose_hubbard_hilbert_space_size(basis.k,basis.N)
+Base.length(basis::PonomarevBasis) = bose_hubbard_hilbert_space_size(basis.k,basis.N)
 sites(basis::PonomarevBasis) = basis.k
-isequal(b1::PonomarevBasis, b2::PonomarevBasis) = b1.k == b2.k && b1.N == b2.N
+Base.isequal(b1::PonomarevBasis, b2::PonomarevBasis) = b1.k == b2.k && b1.N == b2.N
 
 #=
 Think of caching, precomputing the binomials. Pascals triangle?
@@ -180,14 +180,13 @@ end
 """
 Returns the basis element at position index.
 """
-getindex(basis::PonomarevBasis, index::Integer) = getstate(basis::PonomarevBasis, index::Integer)
+Base.getindex(basis::PonomarevBasis, index::Integer) = getstate(basis, index)
 
 
-function iterate(basis::PonomarevBasis, state=1)
+function Base.iterate(basis::PonomarevBasis, state=1)
     count = state
     count > length(basis) ? nothing : ( getstate(basis, count), count+1 )
 end
-
 
 ##############################################################################
 
@@ -205,37 +204,60 @@ cutoff d and U is big enough.
 """
 LtrAscCutoffBasis(parameters::Dict) = LtrAscCutoffBasis(parameters["k"], parameters["d"])
 
-length(basis::LtrAscCutoffBasis) = (basis.d+1)^basis.k
+Base.length(basis::LtrAscCutoffBasis) = (basis.d+1)^basis.k
 sites(basis::LtrAscCutoffBasis) = basis.k
 #=
 This probably can be made non-allocating
 =#
-function iterate(basis::LtrAscCutoffBasis, state=(zeros(Int, basis.k), 1))
-	k = basis.k
-	d = basis.d
-	basis_state, count = state
-
-
-	if count > (d+1)^k
-		return nothing
-	end
-
-	(basis_state, ( reverse(digits(count, base = d+1, pad = k)) , count+1 ) )
+function Base.iterate(basis::LtrAscCutoffBasis, state=1)
+	count = state
+	count > length(basis) ? nothing : ( getstate(basis, count), count+1 )
 end
-isequal(b1::LtrAscCutoffBasis, b2::LtrAscCutoffBasis) = b1.k == b2.k && b1.d == b2.d
+Base.isequal(b1::LtrAscCutoffBasis, b2::LtrAscCutoffBasis) = b1.k == b2.k && b1.d == b2.d
 
 function getposition(basis::LtrAscCutoffBasis, state::AbstractVector{<:Integer})
 	k = basis.k
 	d = basis.d
 
-	@assert length(state) == k
-	@assert all(0 .<= state .<= d)
+	#@assert length(state) == k
+	#@assert all(0 .<= state .<= d)
+	state in basis || error("state $state not in basis")
 	index = 1
 	for i in eachindex(state)
 		index += (d+1)^(k-i) * state[i]
 	end
 	index
 end
+
+"""
+Returns the basis element at position index.
+"""
+Base.getindex(basis::LtrAscCutoffBasis, index::Integer) = getstate(basis, index)
+
+
+"""
+Returns state of the basis with position index.
+"""
+function getstate(basis::LtrAscCutoffBasis, index::Integer)
+    state = zeros(Int, basis.k)
+    getstate!(state, basis, index)
+end
+
+function getstate!(state::AbstractVector, basis::LtrAscCutoffBasis, index::Integer)
+    k = basis.k
+	d = basis.d
+
+	# do we really need the following condition?
+	length(state) != k && error("length(state) != k. Got $(length(state)) and $k")
+
+    !(1 <= index <= length(basis)) && error("Index $index out of bounds [1,$(length(basis))]")
+
+	digits!(state, index-1, base=d+1)
+	reverse!(state)
+	state
+end
+
+Base.in(state::AbstractVector{<:Integer}, basis::LtrAscCutoffBasis) = length(state)==basis.k && all(0 .<= state .<= basis.d)
 
 
 ##############################################################################
@@ -1118,7 +1140,7 @@ function partialtr!(O_A::AbstractMatrix, ψ::AbstractVector,
 	D_A = length(basis_A)
 	D_B = length(basis_B)
 	D != D_A * D_B && error("D != D_A * D_B")
-	
+
 	# this is for safety purposes to ensure that sqrtρ really is initialized
 	# with zeros
 	sqrtρ .= 0

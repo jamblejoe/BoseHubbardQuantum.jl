@@ -243,9 +243,148 @@ end
         end
 
     end
+end
+
+=#
+
+@testset "LtrAscCutoffBasis" begin
+    @testset "getposition" begin
+
+        @testset "k=3, d=1" begin
+            k = 3
+            d = 1
+            basis = LtrAscCutoffBasis(k, d)
+            @test getposition(basis, [0,0,0]) == 1
+            @test getposition(basis, [0,0,1]) == 2
+            @test getposition(basis, [0,1,0]) == 3
+            @test getposition(basis, [0,1,1]) == 4
+            @test getposition(basis, [1,0,0]) == 5
+            @test getposition(basis, [1,0,1]) == 6
+            @test getposition(basis, [1,1,0]) == 7
+            @test getposition(basis, [1,1,1]) == 8
+        end
+
+        @testset "k=3, d=2" begin
+            k = 3
+            d = 2
+            basis = LtrAscCutoffBasis(k, d)
+            @test getposition(basis, [0,0,0]) == 1
+            @test getposition(basis, [0,0,1]) == 2
+            @test getposition(basis, [0,0,2]) == 3
+            @test getposition(basis, [0,1,0]) == 4
+            @test getposition(basis, [0,1,1]) == 5
+            @test getposition(basis, [0,1,2]) == 6
+            @test getposition(basis, [0,2,0]) == 7
+            @test getposition(basis, [0,2,1]) == 8
+            @test getposition(basis, [0,2,2]) == 9
+            @test getposition(basis, [1,0,0]) == 10
+            @test getposition(basis, [1,0,1]) == 11
+            @test getposition(basis, [1,0,2]) == 12
+            @test getposition(basis, [1,1,0]) == 13
+            @test getposition(basis, [1,1,1]) == 14
+            @test getposition(basis, [1,1,2]) == 15
+            @test getposition(basis, [1,2,0]) == 16
+            @test getposition(basis, [1,2,1]) == 17
+            @test getposition(basis, [1,2,2]) == 18
+            @test getposition(basis, [2,0,0]) == 19
+            @test getposition(basis, [2,0,1]) == 20
+            @test getposition(basis, [2,0,2]) == 21
+            @test getposition(basis, [2,1,0]) == 22
+            @test getposition(basis, [2,1,1]) == 23
+            @test getposition(basis, [2,1,2]) == 24
+            @test getposition(basis, [2,2,0]) == 25
+            @test getposition(basis, [2,2,1]) == 26
+            @test getposition(basis, [2,2,2]) == 27
+        end
+
+    end
+
+
+    @testset "getstate" begin
+
+        @testset "k=3,d=1" begin
+            k = 3
+            d = 1
+            basis = LtrAscCutoffBasis(k, d)
+            @test getstate(basis, 1) == [0,0,0]
+            @test getstate(basis, 2) == [0,0,1]
+            @test getstate(basis, 3) == [0,1,0]
+            @test getstate(basis, 4) == [0,1,1]
+            @test getstate(basis, 5) == [1,0,0]
+            @test getstate(basis, 6) == [1,0,1]
+            @test getstate(basis, 7) == [1,1,0]
+            @test getstate(basis, 8) == [1,1,1]
+
+        end
+
+        @testset "k=3,d=2" begin
+            k = 3
+            d = 2
+            basis = LtrAscCutoffBasis(k, d)
+            @test getstate(basis, 1) == [0,0,0]
+            @test getstate(basis, 2) == [0,0,1]
+            @test getstate(basis, 3) == [0,0,2]
+            @test getstate(basis, 4) == [0,1,0]
+            @test getstate(basis, 5) == [0,1,1]
+            @test getstate(basis, 6) == [0,1,2]
+            @test getstate(basis, 7) == [0,2,0]
+            @test getstate(basis, 8) == [0,2,1]
+            @test getstate(basis, 9) == [0,2,2]
+            @test getstate(basis, 10) == [1,0,0]
+            @test getstate(basis, 11) == [1,0,1]
+            @test getstate(basis, 12) == [1,0,2]
+            @test getstate(basis, 13) == [1,1,0]
+            @test getstate(basis, 14) == [1,1,1]
+            @test getstate(basis, 15) == [1,1,2]
+            @test getstate(basis, 16) == [1,2,0]
+            @test getstate(basis, 17) == [1,2,1]
+            @test getstate(basis, 18) == [1,2,2]
+            @test getstate(basis, 19) == [2,0,0]
+            @test getstate(basis, 20) == [2,0,1]
+            @test getstate(basis, 21) == [2,0,2]
+            @test getstate(basis, 22) == [2,1,0]
+            @test getstate(basis, 23) == [2,1,1]
+            @test getstate(basis, 24) == [2,1,2]
+            @test getstate(basis, 25) == [2,2,0]
+            @test getstate(basis, 26) == [2,2,1]
+            @test getstate(basis, 27) == [2,2,2]
+
+        end
+
+    end
+
+    @testset "getstate and getposition" begin
+
+        ks = 2:4
+        ds = 1:3
+        for k in ks
+            for d in ds
+                basis = LtrAscCutoffBasis(k,d)
+                for j in 1:length(basis)
+                    @test getposition(basis, getstate(basis, j)) == j
+                end
+            end
+        end
+    end
+
+
+
+    @testset "iterate" begin
+
+        @testset "k=3, d=1" begin
+
+            k = 3
+            d = 1
+            basis = LtrAscCutoffBasis(k,d)
+            for (i,state) in enumerate(basis)
+                @test state == getstate(basis,i)
+            end
+
+        end
+
+    end
 
 
 
 
 end
-=#
