@@ -224,7 +224,7 @@ function iterate(basis::LtrAscCutoffBasis, state=(zeros(Int, basis.k), 1))
 end
 isequal(b1::LtrAscCutoffBasis, b2::LtrAscCutoffBasis) = b1.k == b2.k && b1.d == b2.d
 
-function getposition(basis::LtrAscCutoffBasis, state::AbstractVector)
+function getposition(basis::LtrAscCutoffBasis, state::AbstractVector{<:Integer})
 	k = basis.k
 	d = basis.d
 
@@ -909,7 +909,7 @@ function PartialtrCache(k, N, k_A)
 	PartialtrCache(basis_full, bases_A)
 end
 
-
+#=
 """
 ONLY WORKS FOR 1D CHAINS
 NOT OPTIMIZED
@@ -918,6 +918,7 @@ traces out subsystem B and returns O acting on A
 
 Operator O
 """
+=#
 #=
 function partialtr(k::Integer, N::Integer, k_B::Integer, O::AbstractMatrix)
 
@@ -972,12 +973,66 @@ function partialtr(k::Integer, N::Integer, k_B::Integer, O::AbstractMatrix)
 end
 =#
 
+
+"""
+Partial trace for operators. There is a faster version for partial traces of
+density matrices of a single pure state.
+"""
+function partialtr!(O_A::AbstractMatrix, O::AbstractMatrix,
+		basis_full, basis_A, basis_B;
+		#cache::PartialtrCache=PartialtrCache(k, N, k_A)
+    )
+
+
+
+	D = length(basis_full)
+	D_A = length(basis_A)
+	D_B = length(basis_B)
+	D != D_A * D_B && error("D != D_A * D_B")
+
+	# make sure that O_A is initialized to 0
+    O_A .= 0
+
+	k = basis_full.k
+	k_A = basis_A.k
+	k_B = basis_B.k
+
+	state_row_cache = zeros(Int, k)
+	state_col_cache = zeros(Int, k)
+
+	for (i, state_A_col) in enumerate(basis_A)
+		N_i = sum(state_A_col)
+		state_col_cache[1:k_A] .= state_A_col
+
+		for (j, state_A_row) in enumerate(basis_A)
+			N_j = sum(state_A_row)
+			state_row_cache[1:k_A] .= state_A_row
+
+			for state_B in basis_B
+				state_col_cache[k_A+1:end] .= state_B
+				state_row_cache[k_A+1:end] .= state_B
+
+				O_ind_col = getposition(basis_full, state_col_cache)
+				O_ind_row = getposition(basis_full, state_row_cache)
+				O_A[j,i] += O[O_ind_row, O_ind_col]
+			end
+
+
+		end
+	end
+
+
+	return O_A
+end
+
+#=
 function partialtr(k::Integer, N::Integer, k_A::Integer, O::AbstractMatrix)
     D_A = bose_hubbard_hilbert_space_size(k_A, 0, N)
     O_A = zeros(D_A,D_A)
     return partialtr!(O_A, k, N, k_A, O)
 end
-
+=#
+#=
 function partialtr!(O_A::AbstractMatrix, k::Integer, N::Integer, k_A::Integer, O::AbstractMatrix;
 		cache::PartialtrCache=PartialtrCache(k, N, k_A)
     )
@@ -1043,29 +1098,36 @@ function partialtr!(O_A::AbstractMatrix, k::Integer, N::Integer, k_A::Integer, O
 
 	return O_A
 end
+=#
 
+#=
 function partialtr(k::Integer, N::Integer, k_A::Integer, ψ::AbstractVector)
 	D_A = bose_hubbard_hilbert_space_size(k_A,0,N)
 	O_A = zeros(D_A, D_A)
 	partialtr!(O_A, k, N, k_A, ψ)
 end
+=#
 
 
-
-function partialtr!(O_A::AbstractMatrix, k::Integer, N::Integer, k_A::Integer, ψ::AbstractVector;
-        basis_full=LtrAscBasis(k, N),
-		basis_A = LtrAscBasis(k_A, 0, N),
-		basis_B = LtrAscBasis(k-k_A, 0, N),
+function partialtr!(O_A::AbstractMatrix, ψ::AbstractVector,
+        basis_full, basis_A, basis_B;
 		sqrtρ = zeros(length(basis_A), length(basis_B))
     )
 
+	D = length(basis_full)
+	D_A = length(basis_A)
+	D_B = length(basis_B)
+	D != D_A * D_B && error("D != D_A * D_B")
+	
 	# this is for safety purposes to ensure that sqrtρ really is initialized
 	# with zeros
 	sqrtρ .= 0
 
+	k_A = basis_A.k
+
 	for (i, state) in enumerate(basis_full)
-		j = getposition(basis_A, state[1:k_A])
-		l = getposition(basis_B, state[k_A+1:end])
+		@views j = getposition(basis_A, state[1:k_A])
+		@views l = getposition(basis_B, state[k_A+1:end])
 		sqrtρ[j,l] = ψ[i]
 	end
 

@@ -14,7 +14,7 @@ using SparseArrays
 # basis
 export bose_hubbard_hilbert_space_size
 export AbstractBasis, get_or_create_basis
-export LtrAscBasis, PonomarevBasis, LtrAscBasis0N
+export LtrAscBasis, PonomarevBasis, LtrAscBasis0N, LtrAscCutoffBasis
 export getposition, getstate, getstate!
 
 # graphs
@@ -28,6 +28,9 @@ export creation_spmatrix, annihilation_spmatrix
 # bosehubbard hamiltonian
 export BoseHubbardHamiltonian, BoseHubbardHamiltonianChain
 export matrix, spmatrix
+
+# partial traces
+export partialtr!
 
 
 include("bose_hubbard.jl")

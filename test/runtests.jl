@@ -11,8 +11,12 @@ using Test
 using SparseArrays
 using LinearAlgebra
 
+# partialtr
+using Random
+
 import BoseHubbardQuantum: tunnel_spmatrices
 
 include("basis_tests.jl")
 include("operator_tests.jl")
 include("hamiltonian_tests.jl")
+include("partialtr_tests.jl")
