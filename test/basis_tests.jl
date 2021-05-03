@@ -1,5 +1,3 @@
-
-
 @testset "LtrAscBasis" begin
 
     @testset "length" begin

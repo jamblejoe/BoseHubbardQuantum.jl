@@ -1,4 +1,4 @@
-@testset "Test operators" begin
+@testset "Operators" begin
 
     #############################  Explicit Tunnel ############################
     @testset "tunnel operators" begin
@@ -287,6 +287,83 @@
                         end
                     end
                 end
+            end
+
+            @testset "creation/annihilation operator commutation relation" begin
+
+                @testset "[c_i, c_j] = 0" begin
+
+
+                    for (k,N) in Iterators.product(3:5, :3:5)
+                        for (i,j) in Iterators.product(1:k, 1:k)
+
+                            basis1 = LtrAscBasis(k, N)
+                            basis2 = LtrAscBasis(k, N-1)
+                            basis3 = LtrAscBasis(k, N-2)
+
+                            c_i_1 = annihilation_spmatrix(i, basis2, basis3)
+                            c_j_1 = annihilation_spmatrix(j, basis1, basis2)
+
+                            c_i_2 = annihilation_spmatrix(i, basis1, basis2)
+                            c_j_2 = annihilation_spmatrix(j, basis2, basis3)
+
+                            @test isapprox(c_i_1 * c_j_1, c_j_2 * c_i_2; atol=1e-14)
+                        end
+                    end
+                end
+
+                @testset "[c_i^dagger, c_j^dagger] = 0" begin
+
+
+                    for (k,N) in Iterators.product(3:5, :3:5)
+                        for (i,j) in Iterators.product(1:k, 1:k)
+
+                            basis1 = LtrAscBasis(k, N)
+                            basis2 = LtrAscBasis(k, N+1)
+                            basis3 = LtrAscBasis(k, N+2)
+
+                            c_i_dagger_1 = creation_spmatrix(i, basis2, basis3)
+                            c_j_dagger_1 = creation_spmatrix(j, basis1, basis2)
+
+                            c_i_dagger_2 = creation_spmatrix(i, basis1, basis2)
+                            c_j_dagger_2 = creation_spmatrix(j, basis2, basis3)
+
+                            @test isapprox(c_i_dagger_1 * c_j_dagger_1, c_j_dagger_2 * c_i_dagger_2; atol=1e-14)
+                        end
+                    end
+                end
+
+                @testset "[c_i, c_j^dagger] = delta_ij" begin
+
+
+                    for (k,N) in Iterators.product(3:5, :3:5)
+                        for (i,j) in Iterators.product(1:k, 1:k)
+
+
+                            basis1 = LtrAscBasis(k, N)
+                            basis2 = LtrAscBasis(k, N-1)
+                            basis3 = LtrAscBasis(k, N+1)
+
+                            c_i_1 = annihilation_spmatrix(i, basis3, basis1)
+                            c_j_dagger_1 = creation_spmatrix(j, basis1, basis3)
+
+                            c_i_2 = annihilation_spmatrix(i, basis1, basis2)
+                            c_j_dagger_2 = creation_spmatrix(j, basis2, basis1)
+
+                            if i == j
+                                @test isapprox(c_i_1 * c_j_dagger_1 - c_j_dagger_2 * c_i_2, I(length(basis1)); atol=1e-14)
+                            else
+                                @test isapprox(c_i_1 * c_j_dagger_1, c_j_dagger_2 * c_i_2; atol=1e-14)
+                            end
+                        end
+                    end
+                end
+
+
+
+
+
+
             end
 
         end

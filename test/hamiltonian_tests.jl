@@ -1,4 +1,4 @@
-@testset "Test Hamiltonian creation" begin
+@testset "Hamiltonian creation" begin
 
     @testset "create tunnel matrices dimer N=1" begin
         N = 1
