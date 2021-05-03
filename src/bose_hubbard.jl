@@ -1122,17 +1122,19 @@ function partialtr!(O_A::AbstractMatrix, k::Integer, N::Integer, k_A::Integer, O
 end
 =#
 
-#=
-function partialtr(k::Integer, N::Integer, k_A::Integer, ψ::AbstractVector)
-	D_A = bose_hubbard_hilbert_space_size(k_A,0,N)
+
+function partialtr(ψ::AbstractVector,
+	basis_full::AbstractBasis, basis_A::AbstractBasis, basis_B::AbstractBasis;
+		sqrtρ = zeros(length(basis_A), length(basis_B)))
+	D_A = length(basis_A)
 	O_A = zeros(D_A, D_A)
-	partialtr!(O_A, k, N, k_A, ψ)
+	partialtr!(O_A, ψ, basis_full, basis_A, basis_B; sqrtρ=sqrtρ)
 end
-=#
+
 
 
 function partialtr!(O_A::AbstractMatrix, ψ::AbstractVector,
-        basis_full, basis_A, basis_B;
+        basis_full::AbstractBasis, basis_A::AbstractBasis, basis_B::AbstractBasis;
 		sqrtρ = zeros(length(basis_A), length(basis_B))
     )
 

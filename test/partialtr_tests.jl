@@ -18,9 +18,9 @@
                 ψ ./= norm(ψ)
 
                 D_A = length(basis_A)
-                O_A_1 = zeros(D_A, D_A)
+                #O_A_1 = zeros(D_A, D_A)
                 D_B = length(basis_B)
-                partialtr!(O_A_1, ψ, basis_full, basis_A, basis_B)
+                O_A_1 = partialtr(ψ, basis_full, basis_A, basis_B)
 
                 ρ = ψ * ψ'
                 O_A_2 = zeros(D_A, D_A)

@@ -30,7 +30,7 @@ export BoseHubbardHamiltonian, BoseHubbardHamiltonianChain
 export matrix, spmatrix
 
 # partial traces
-export partialtr!
+export partialtr, partialtr!
 
 
 include("bose_hubbard.jl")
