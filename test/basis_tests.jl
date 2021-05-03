@@ -384,6 +384,18 @@ end
 
     end
 
+    @testset "is in" begin
+        k = 3
+        d = 2
+        basis = LtrAscCutoffBasis(k,d)
+        @test !(1 in basis)
+        @test !([0,0] in basis)
+        @test [0,0,0] in basis
+        @test [0,0,1] in basis
+        @test !([0,0,-1] in basis)
+        @test !([3,0,0] in basis)
+    end
+
 
 
 
