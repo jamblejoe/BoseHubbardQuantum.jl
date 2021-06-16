@@ -87,6 +87,38 @@
         @test basis_corr == basis_calc
     end
 
+    @testset "getposition" begin
+        @testset "k=3, N=2" begin
+            k = 3
+            N = 2
+            basis = LtrAscBasis(k,N)
+            @test getposition(basis, [0,0,2]) == 1
+            @test getposition(basis, [0,1,1]) == 2
+            @test getposition(basis, [0,2,0]) == 3
+            @test getposition(basis, [1,0,1]) == 4
+            @test getposition(basis, [1,1,0]) == 5
+            @test getposition(basis, [2,0,0]) == 6
+
+        end
+
+
+    end
+
+    @testset "getstate" begin
+        @testset "k=3, N=2" begin
+            k = 3
+            N = 2
+            basis = LtrAscBasis(k,N)
+            @test all(getstate(basis, 1) .== [0,0,2])
+            @test all(getstate(basis, 2) .== [0,1,1])
+            @test all(getstate(basis, 3) .== [0,2,0])
+            @test all(getstate(basis, 4) .== [1,0,1])
+            @test all(getstate(basis, 5) .== [1,1,0])
+            @test all(getstate(basis, 6) .== [2,0,0])
+        end
+    end
+
+
 
 end
 

@@ -105,6 +105,7 @@ Base.iterate(basis::LtrAscBasis, state) = iterate(basis.basis, state)
 Base.isequal(b1::LtrAscBasis, b2::LtrAscBasis) = b1.k == b2.k && b1.N == b2.N
 
 getposition(basis::LtrAscBasis, state::AbstractVector) = basis.index[state]
+getstate(basis::LtrAscBasis, index::Integer) = basis.basis[index]
 Base.in(state::AbstractVector, basis::LtrAscBasis) = haskey(basis.index, state)
 
 
