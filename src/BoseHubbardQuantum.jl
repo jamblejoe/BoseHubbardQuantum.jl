@@ -34,5 +34,8 @@ export partialtr, partialtr!
 
 
 include("bose_hubbard.jl")
+include("basis.jl")
+include("operator.jl")
+include("partial_trace.jl")
 
 end
