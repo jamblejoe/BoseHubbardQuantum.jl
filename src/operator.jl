@@ -133,6 +133,8 @@ function tunnel_spmatrix(source::Integer, destination::Integer,
     tunnel_operator[source] = -1
     tunnel_operator[destination] = 1
 
+    neighbouring_state = similar(tunnel_operator)
+    basis_element = similar(tunnel_operator)
 
     rows = Int[]
     cols = Int[]
@@ -142,10 +144,12 @@ function tunnel_spmatrix(source::Integer, destination::Integer,
     #basis_to_index = basis.index
 
 
-    for (i,basis_element) in enumerate(basis)
+    #for (i,basis_element) in enumerate(basis)
+    for i in eachindex(basis)
+        getstate!(basis_element, basis, i)
         # Create tunnel states
         # let the tunneling operator act on the basis_element
-        neighbouring_state = tunnel_operator .+ basis_element
+        neighbouring_state .= tunnel_operator .+ basis_element
 
 
         if neighbouring_state in basis
@@ -249,7 +253,11 @@ function number_spmatrix(site::Integer, basis::AbstractBasis)
     diags = Int[]
     values = Float64[]  # again, really necessary?
 
-    for (i, basis_element) in enumerate(basis)
+    basis_element = zeros(k)
+
+    #for (i, basis_element) in enumerate(basis)
+    for i in eachindex(basis)
+        getstate!(basis_element, basis, i)
         value = basis_element[site]
         if value != 0
             push!(diags, i)

@@ -106,7 +106,9 @@ Base.isequal(b1::LtrAscBasis, b2::LtrAscBasis) = b1.k == b2.k && b1.N == b2.N
 
 getposition(basis::LtrAscBasis, state::AbstractVector) = basis.index[state]
 getstate(basis::LtrAscBasis, index::Integer) = basis.basis[index]
+getstate!(state::AbstractVector, basis::LtrAscBasis, index::Integer) = state .= basis.basis[index]
 Base.in(state::AbstractVector, basis::LtrAscBasis) = haskey(basis.index, state)
+Base.eachindex(basis::LtrAscBasis) = 1:length(basis)
 
 
 ##############################################################################
@@ -117,11 +119,29 @@ https://arxiv.org/pdf/1410.7280.pdf
 struct PonomarevBasis <: AbstractBasis
     k::Int
     N::Int
+    D::Int # Hilbert space size
+    Ds::Matrix{Int}
+end
+
+function PonomarevBasis(k::Integer, N::Integer)
+
+    Ds = Matrix{Int}(undef, k+1, N+1)
+    for i in 0:k
+        for j in 0:N
+            Ds[i+1,j+1] = bose_hubbard_hilbert_space_size(i,j)
+        end
+    end
+
+    PonomarevBasis(k, N, bose_hubbard_hilbert_space_size(k,N), Ds)
+
 end
 
 PonomarevBasis(parameters::Dict) = PonomarevBasis(parameters["k"], parameters["N"])
 
-Base.length(basis::PonomarevBasis) = bose_hubbard_hilbert_space_size(basis.k,basis.N)
+@inline _D(basis::PonomarevBasis, k::Integer, N::Integer) = basis.Ds[k+1, N+1]
+@inline _D_unsafe(basis::PonomarevBasis, k::Integer, N::Integer) = @inbounds basis.Ds[k+1, N+1]
+
+Base.length(basis::PonomarevBasis) = basis.D
 sites(basis::PonomarevBasis) = basis.k
 Base.isequal(b1::PonomarevBasis, b2::PonomarevBasis) = b1.k == b2.k && b1.N == b2.N
 
@@ -134,16 +154,21 @@ Returns the position of a state in the basis.
 function getposition(basis::PonomarevBasis, state::AbstractVector)
     k = basis.k
     N = basis.N
+    #Ds = basis.Ds
 
     length(state) == k || throw(DomainError(k, "length of state must be $k"))
-    all(0 .<= state .<= N) || throw(DomainError(N, "components of state must be between 0 and $N"))
+    #all(0 .<= state .<= N) || throw(DomainError(N, "components of state must be between 0 and $N"))
+    for s in state
+        0 <= s <= N || throw(DomainError(N, "components of state must be between 0 and $N"))
+    end
     sum(state) == N || throw(DomainError(N, "components of state must sum to $N"))
 
     index = 1
     l = N
     for (m_l,n_i) in enumerate(state)
         for _ in 1:n_i
-            index += bose_hubbard_hilbert_space_size(k-m_l, l)
+            #index += bose_hubbard_hilbert_space_size(k-m_l, l)
+            index += _D_unsafe(basis, k-m_l, l)
             l -= 1
         end
     end
@@ -158,21 +183,25 @@ function getstate(basis::PonomarevBasis, index::Integer)
     getstate!(state, basis, index)
 end
 
-function getstate!(state::AbstractVector, basis::PonomarevBasis, index::Integer)
+function getstate!(state::AbstractVector{T}, basis::PonomarevBasis, index::Integer) where T
     k = basis.k
     N = basis.N
+    #Ds = basis.Ds
 
-    @assert 1 <= index <= length(basis) "index $index out of bounds [1,$(length(basis))]"
+    one(index) <= index <= length(basis) || error("index $index out of bounds [1,$(length(basis))]")
 
-    state .= 0
+    state .= zero(T)
 
     for i in N:-1:1
         m_i = 0
-        while bose_hubbard_hilbert_space_size(m_i+1,i) < index
-            m_i += 1
+        #while bose_hubbard_hilbert_space_size(m_i+1,i) < index
+        while _D_unsafe(basis, m_i+1, i) < index
+            m_i += one(index)
         end
-        state[k-m_i] += 1
-        index -= bose_hubbard_hilbert_space_size(m_i,i)
+        state[k-m_i] += one(T)
+        #index -= bose_hubbard_hilbert_space_size(m_i,i)
+        index -= _D_unsafe(basis, m_i, i)
+    
     end
     state
 end
@@ -187,6 +216,21 @@ Base.getindex(basis::PonomarevBasis, index::Integer) = getstate(basis, index)
 function Base.iterate(basis::PonomarevBasis, state=1)
     count = state
     count > length(basis) ? nothing : ( getstate(basis, count), count+1 )
+end
+
+Base.eachindex(basis::PonomarevBasis) = 1:length(basis)
+
+function Base.in(state::AbstractVector, basis::PonomarevBasis)
+    k = basis.k
+    N = basis.N
+
+    length(state) == k || return false
+    #all(0 .<= state) || return false
+    for s in state
+        0 <= s <= N || return false
+    end
+    sum(state) == N || return false
+    return true
 end
 
 ##############################################################################
@@ -259,7 +303,7 @@ function getstate!(state::AbstractVector, basis::LtrAscCutoffBasis, index::Integ
 end
 
 Base.in(state::AbstractVector{<:Integer}, basis::LtrAscCutoffBasis) = length(state)==basis.k && all(0 .<= state .<= basis.d)
-
+Base.eachindex(basis::LtrAscCutoffBasis) = 1:length(basis)
 
 ##############################################################################
 
