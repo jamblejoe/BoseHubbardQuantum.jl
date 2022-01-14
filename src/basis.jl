@@ -3,7 +3,6 @@
 # Basis
 #
 ##############################################################################
-#import Base: length, iterate, isequal, getindex, in
 
 """
 For given number of particles N and site count k returns the size of the Hilbert space
@@ -35,12 +34,12 @@ abstract type AbstractBasis end
 
 
 struct LtrAscBasis <: AbstractBasis
-	k::Int
+    k::Int
     N::Int      # keep this for convinience and to not break old code
     Nmin::Int
     Nmax::Int
-	basis::Vector{Vector{Int}}
-	index::Dict{Vector{Int}, Int}
+    basis::Vector{Vector{Int}}
+    index::Dict{Vector{Int}, Int}
 end
 
 
@@ -54,29 +53,27 @@ for 2 particles and 3 sites
 The length of the list is binomial(N+k-1,k-1).
 """
 function LtrAscBasis(parameters::Dict)
-	k = parameters["k"]
-	N = parameters["N"]
-  LtrAscBasis(k,N)
+    k = parameters["k"]
+    N = parameters["N"]
+    LtrAscBasis(k,N)
 end
 
 LtrAscBasis(k::Integer, N::Integer) = LtrAscBasis(k, N, N)
 function LtrAscBasis(k::Integer, Nmin::Integer, Nmax::Integer)
 
-	@assert k>0
+    @assert k>0
     @assert Nmax >= Nmin >=0
     @assert typeof(Nmin) == typeof(Nmax)
 
-    #D = bose_hubbard_hilbert_space_size(k, N)
-
-	# create the basis
-	state = zeros(typeof(Nmax), k)
+    # create the basis
+    state = zeros(typeof(Nmax), k)
     basis = typeof(state)[]
 
     for N in Nmin:Nmax
         ltr_asc_loop!(basis, state, N, 1)
     end
-	# calculate the index
-	index = create_basis_index(basis)
+    # calculate the index
+    index = create_basis_index(basis)
 
     return LtrAscBasis(k, Nmax, Nmin, Nmax, basis, index)
 end
@@ -145,16 +142,12 @@ Base.length(basis::PonomarevBasis) = basis.D
 sites(basis::PonomarevBasis) = basis.k
 Base.isequal(b1::PonomarevBasis, b2::PonomarevBasis) = b1.k == b2.k && b1.N == b2.N
 
-#=
-Think of caching, precomputing the binomials. Pascals triangle?
-=#
 """
 Returns the position of a state in the basis.
 """
 function getposition(basis::PonomarevBasis, state::AbstractVector)
     k = basis.k
     N = basis.N
-    #Ds = basis.Ds
 
     length(state) == k || throw(DomainError(k, "length of state must be $k"))
     #all(0 .<= state .<= N) || throw(DomainError(N, "components of state must be between 0 and $N"))
@@ -304,13 +297,6 @@ end
 
 Base.in(state::AbstractVector{<:Integer}, basis::LtrAscCutoffBasis) = length(state)==basis.k && all(0 .<= state .<= basis.d)
 Base.eachindex(basis::LtrAscCutoffBasis) = 1:length(basis)
-
-##############################################################################
-
-
-
-
-
 
 
 ##############################################################################
