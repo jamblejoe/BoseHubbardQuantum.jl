@@ -2,11 +2,11 @@
 
     @testset "create tunnel matrices dimer N=1" begin
         N = 1
-        k = 2
+        L = 2
 
         graph = dimer_graph()
 
-        basis = LtrAscBasis(k, N)
+        basis = LtrAscBasis(L, N)
 
         tun_corr = spzeros(2,2)
         tun_corr[1,2] = 1.
@@ -20,7 +20,7 @@
     @testset "hamiltonia dimer N=1" begin
 
         N = 1
-        k = 2
+        L = 2
 
         # Define the correct Hamiltonian
         function f_H_correct(J,U)
@@ -38,7 +38,7 @@
         J_arr = 1:1:10
 
         # Prepare the system
-        basis = LtrAscBasis(k, N)
+        basis = LtrAscBasis(L, N)
         graph = dimer_graph()
         bhh = BoseHubbardHamiltonian(graph, basis)
 
@@ -54,7 +54,7 @@
     @testset "hamiltonian dimer N=2" begin
 
         N = 2
-        k = 2
+        L = 2
 
         # Define the correct Hamiltonian
         function f_H_correct(J,U)
@@ -78,7 +78,7 @@
         J_arr = 0:2:10
 
         # Prepare the system
-        basis = LtrAscBasis(k, N)
+        basis = LtrAscBasis(L, N)
         graph = dimer_graph()
         bhh = BoseHubbardHamiltonian(graph, basis)
 
@@ -95,7 +95,7 @@
     @testset "hamiltonian dimer N=3" begin
 
         N = 3
-        k = 2
+        L = 2
 
         function f_H_correct(J,U)
             H = Matrix{Float64}(I, 4, 4)
@@ -124,7 +124,7 @@
         J_arr = 0:2:10
 
         # Prepare the system
-        basis = LtrAscBasis(k, N)
+        basis = LtrAscBasis(L, N)
         graph = dimer_graph()
         bhh = BoseHubbardHamiltonian(graph, basis)
 
@@ -144,7 +144,7 @@
     @testset "hamiltonian trimer N=1" begin
 
         N = 1
-        k = 3
+        L = 3
 
         function f_H_correct(J,eps)
             H = Matrix{Float64}(I, 3, 3)
@@ -170,7 +170,7 @@
         eps_arr = Iterators.product(eps_arr, eps_arr, eps_arr)
 
         # Prepare the system
-        basis = LtrAscBasis(k, N)
+        basis = LtrAscBasis(L, N)
         graph = trimer_graph()
         bhh = BoseHubbardHamiltonian(graph, basis)
 
@@ -188,7 +188,7 @@
     @testset "hamiltonian trimer N=2" begin
 
         N = 2
-        k = 3
+        L = 3
 
         function f_H_correct(J,eps,U)
             H = Matrix{Float64}(I, 6, 6)
@@ -244,7 +244,7 @@
         eps_arr = Iterators.product(eps_arr, eps_arr, eps_arr)
 
         # Prepare the system
-        basis = LtrAscBasis(k, N)
+        basis = LtrAscBasis(L, N)
         graph = trimer_graph()
         bhh = BoseHubbardHamiltonian(graph, basis)
 

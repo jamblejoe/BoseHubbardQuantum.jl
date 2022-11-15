@@ -16,13 +16,13 @@ the domain is basis1 and the codomain is basis2.
 """
 function creation_spmatrix(index::Integer, basis1::AbstractBasis, basis2::AbstractBasis)
 
-	k = basis1.k
-	@assert k == basis2.k
+	L = sites(basis1)
+	@assert L == sites(basis2)
 
-    @assert 1 <= index <= k
+    @assert 1 <= index <= L
 
     # operator acting on basis state by elementwise addition
-    op = zeros(Int, k)
+    op = zeros(Int, L)
     op[index] = 1
 
     rows = Int[]
@@ -62,12 +62,12 @@ respect to the given basis.
 """
 function annihilation_spmatrix(index::Integer, basis1::AbstractBasis, basis2::AbstractBasis)
 
-	k = basis1.k
-	@assert k == basis2.k
-    @assert 1 <= index <= k
+	L = sites(basis1)
+	@assert L == sites(basis2)
+    @assert 1 <= index <= L
 
     # create the tunneling vector
-    op = zeros(Int, k)
+    op = zeros(Int, L)
     op[index] = -1
 
     rows = Int[]
@@ -120,13 +120,13 @@ function tunnel_spmatrix(source::Integer, destination::Integer,
 	# ask the discord forum about the following line
 	#@assert typeof(source) == typeof(destination)
 
-	k = basis.k
+	L = sites(basis)
 	#N = basis.N
 
     basis_length = length(basis)
-    basis_element_length = k
+    basis_element_length = L
 
-    @assert 1 <= source <= k && 1 <= destination <= k
+    @assert 1 <= source <= L && 1 <= destination <= L
 
     # create the tunneling vector
     tunnel_operator = zeros(Int, basis_element_length)
@@ -179,7 +179,7 @@ Creates a symmetric tunnel operator between site_1 and site_2 in the standard
 basis.
 """
 function tunnel_symm_operator(site_1::Integer, site_2::Integer, parameters::Dict)
-    k = parameters["k"]
+    L = _get_L(parameters)
     N = parameters["N"]
 
     basis = get_or_create_basis(parameters)
@@ -212,12 +212,12 @@ end
 Creates a sparse matrix representing the kinetic operator in the given basis.
 """
 function kinetic_spmatrix(basis::AbstractBasis)
-	k = basis.k
+	L = sites(basis)
 
-	@assert k > 1
+	@assert L > 1
 
 	op = tunnel_symm_spmatrix(1,2,basis)
-	for i in 2:(k-1)
+	for i in 2:(L-1)
 		op += tunnel_symm_spmatrix(i,i+1,basis)
 	end
 	op
@@ -229,10 +229,10 @@ end
 Create a number operator on the given site in the standard basis.
 """
 function number_operator(site::Integer, parameters::Dict)
-    k = parameters["k"]
+    L = _get_L(parameters)
     N = parameters["N"]
 
-    basis = LtrAscBasis(k, N)
+    basis = LtrAscBasis(L, N)
 
     tunnel = number_spmatrix(site, basis)
     return tunnel
@@ -244,16 +244,16 @@ Create a sparse matrix representing the number operator on the
 given site in the given basis.
 """
 function number_spmatrix(site::Integer, basis::AbstractBasis)
-    k = basis.k
+    L = sites(basis)
 
-    @assert 1 <= site <= k
+    @assert 1 <= site <= L
 
     # create arrays to store the indices and values of the sparse matrix
     # matrix will only have diagonal non-zero entries
     diags = Int[]
     values = Float64[]  # again, really necessary?
 
-    basis_element = zeros(k)
+    basis_element = zeros(L)
 
     #for (i, basis_element) in enumerate(basis)
     for i in eachindex(basis)
@@ -271,7 +271,7 @@ function number_spmatrix(site::Integer, basis::AbstractBasis)
 end
 
 function total_number_spmatrix(basis::AbstractBasis)
-    k = basis.k
+    L = sites(basis)
     basis_length = length(basis)
 
     # create arrays to store the indices and values of the sparse matrix
@@ -306,7 +306,7 @@ k sites.
 """
 struct BoseHubbardHamiltonian
     #N 			# the number of particles
-    k 			# the number of sites
+    L 			# the number of sites
     #D           # Dimension of the system, i.e. the length of the underlying basis
     basis       # the underlying basis
     tunnel 		# stores the tunneling matrices defined by the edges of given graphs
@@ -316,13 +316,13 @@ end
 
 function BoseHubbardHamiltonian(graph, basis::AbstractBasis)
 
-    k = basis.k
+    L = sites(basis)
     #N = basis.N
     #D = length(basis)
 
-	@assert k>0
+	@assert L>0
   	#@assert N>0
-	@assert k == nv(graph)
+	@assert L == nv(graph)
 
 
     tunnel = tunnel_spmatrices(graph, basis)
@@ -330,19 +330,19 @@ function BoseHubbardHamiltonian(graph, basis::AbstractBasis)
 	potential = potential_spmatrices(graph, basis)
 
     #return BoseHubbardHamiltonian(N, k, tunnel, interaction)
-	return BoseHubbardHamiltonian(k, basis, tunnel, potential)
+	return BoseHubbardHamiltonian(L, basis, tunnel, potential)
 
 end
 
 function BoseHubbardHamiltonianChain(parameters::Dict)
 
-	k = parameters["k"]
+	L = _get_L(parameters)
 	N = parameters["N"]
 
-	@assert k>0
+	@assert L>0
 	@assert N>0
 
-	graph = k_chain_graph(k::Integer)
+	graph = chain_graph(L::Integer)
 	basis = get_or_create_basis(parameters)
 
 	return BoseHubbardHamiltonian(graph, basis)
@@ -356,13 +356,13 @@ the given basis.
 """
 function tunnel_spmatrices(graph, basis::AbstractBasis)
 
-	k = basis.k
+	L = sites(basis)
 
-	@assert k>0
-	@assert k == nv(graph)
+	@assert L>0
+	@assert L == nv(graph)
 
     #basis_length = length(basis)
-    sites_count = k
+    sites_count = L
     tunnel_operators_count = ne(graph)
 
     tunnel = Vector{SparseMatrixCSC{Float64,Int}}(undef, tunnel_operators_count)
@@ -386,14 +386,14 @@ the given basis.
 """
 function potential_spmatrices(graph, basis::AbstractBasis)
 
-	k = basis.k
+	L = sites(basis)
 
-	@assert k>0
-	@assert k == nv(graph)
+	@assert L>0
+	@assert L == nv(graph)
 
-	potential = Vector{SparseMatrixCSC{Float64,Int}}(undef, k)
+	potential = Vector{SparseMatrixCSC{Float64,Int}}(undef, L)
 
-	for i in 1:k
+	for i in 1:L
 		potential[i] = number_spmatrix(i, basis)
 	end
 
@@ -493,11 +493,11 @@ Returns the sparse matrix representation of the given Bose-Hubbard
 Hamiltonian
 """
 function spmatrix(bhh::BoseHubbardHamiltonian, parameters::Dict)
-	k = parameters["k"]
+	L = _get_L(parameters)
 	J = parameters["J"]
-	U = haskey(parameters, "U") ? parameters["U"] : zeros(k)
-	U = length(U) == 1 ? [U for _ in 1:k] : U
-	eps = haskey(parameters, "eps") ? parameters["eps"] : zeros(k)
+	U = haskey(parameters, "U") ? parameters["U"] : zeros(L)
+	U = length(U) == 1 ? [U for _ in 1:L] : U
+	eps = haskey(parameters, "eps") ? parameters["eps"] : zeros(L)
 
 	spmatrix(bhh, J, eps, U)
 end
@@ -505,8 +505,8 @@ end
 # TODO
 # remove this function at some point
 function spmatrix(bhh::BoseHubbardHamiltonian, J, U)
-	k = bhh.k
-	eps = zeros(k)
+	L = bhh.L
+	eps = zeros(L)
 	return spmatrix(bhh, J, eps, U)
 end
 

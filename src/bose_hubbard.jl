@@ -28,6 +28,10 @@ function k_chain_graph(k::Integer)
     return path_graph(k)
 end
 
+chain_graph(L::Integer) = path_graph(L)
+
+Base.@deprecate k_chain_graph(k::Integer) chain_graph(L::Integer)
+
 ##############################################################################
 #
 # exponentials of Bose-Hubbard Hamiltonian

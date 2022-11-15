@@ -13,9 +13,9 @@ struct PartialtrCache
 	bases_A
 end
 
-function PartialtrCache(k, N, k_A)
-	basis_full=LtrAscBasis(k, N)
-	bases_A=[LtrAscBasis(k_A, n) for n in 0:N]
+function PartialtrCache(L, N, L_A)
+	basis_full=LtrAscBasis(L, N)
+	bases_A=[LtrAscBasis(L_A, n) for n in 0:N]
 	PartialtrCache(basis_full, bases_A)
 end
 
@@ -103,24 +103,24 @@ function partialtr!(O_A::AbstractMatrix, O::AbstractMatrix,
 	# make sure that O_A is initialized to 0
     O_A .= 0
 
-	k = basis_full.k
-	k_A = basis_A.k
-	k_B = basis_B.k
+	L = sites(basis_full)
+	L_A = sites(basis_A)
+	L_B = sites(basis_B)
 
-	state_row_cache = zeros(Int, k)
-	state_col_cache = zeros(Int, k)
+	state_row_cache = zeros(Int, L)
+	state_col_cache = zeros(Int, L)
 
 	for (i, state_A_col) in enumerate(basis_A)
 		N_i = sum(state_A_col)
-		state_col_cache[1:k_A] .= state_A_col
+		state_col_cache[1:L_A] .= state_A_col
 
 		for (j, state_A_row) in enumerate(basis_A)
 			N_j = sum(state_A_row)
-			state_row_cache[1:k_A] .= state_A_row
+			state_row_cache[1:L_A] .= state_A_row
 
 			for state_B in basis_B
-				state_col_cache[k_A+1:end] .= state_B
-				state_row_cache[k_A+1:end] .= state_B
+				state_col_cache[L_A+1:end] .= state_B
+				state_row_cache[L_A+1:end] .= state_B
 
 				O_ind_col = getposition(basis_full, state_col_cache)
 				O_ind_row = getposition(basis_full, state_row_cache)
@@ -235,11 +235,11 @@ function partialtr!(O_A::AbstractMatrix, ψ::AbstractVector,
 	# with zeros
 	sqrtρ .= 0
 
-	k_A = basis_A.k
+	L_A = sites(basis_A)
 
 	for (i, state) in enumerate(basis_full)
-		@views j = getposition(basis_A, state[1:k_A])
-		@views l = getposition(basis_B, state[k_A+1:end])
+		@views j = getposition(basis_A, state[1:L_A])
+		@views l = getposition(basis_B, state[L_A+1:end])
 		sqrtρ[j,l] = ψ[i]
 	end
 

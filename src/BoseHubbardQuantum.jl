@@ -19,7 +19,7 @@ export LtrAscBasis, PonomarevBasis, LtrAscBasis0N, LtrAscCutoffBasis
 export getposition, getstate, getstate!
 
 # graphs
-export dimer_graph, trimer_graph, k_chain_graph
+export dimer_graph, trimer_graph, chain_graph
 
 # operators
 export tunnel_operator, tunnel_symm_operator, number_operator, kinetic_operator
@@ -32,6 +32,12 @@ export matrix, spmatrix
 
 # partial traces
 export partialtr, partialtr!
+
+# depricated
+export k_chain_graph
+
+_get_L(parameters::Dict) = haskey(parameters, "k") ? parameters["k"] : parameters["L"]
+
 
 
 include("bose_hubbard.jl")
