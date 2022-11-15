@@ -44,5 +44,6 @@ include("bose_hubbard.jl")
 include("basis.jl")
 include("operator.jl")
 include("partial_trace.jl")
+include("deprecated.jl")
 
 end

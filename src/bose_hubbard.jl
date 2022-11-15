@@ -10,27 +10,19 @@ resulting in a Hamiltonian
 H = -J/2 (a_dag_1 a_2 + a_dag_2 a_1) + U/2 (n_1(n_1-1) + n_2(n_2-1))
   + delta/2 (n_1-n_2)
 """
-function dimer_graph()
-    return path_graph(2)
-end
+dimer_graph() = path_graph(2)
 
 """
 Creates a trimer graph
 """
-function trimer_graph()
-    return path_graph(3)
-end
+trimer_graph() = path_graph(3)
 
 """
-Creates a chain graph of length k
+Creates a chain graph of length L
 """
-function k_chain_graph(k::Integer)
-    return path_graph(k)
-end
-
 chain_graph(L::Integer) = path_graph(L)
 
-Base.@deprecate k_chain_graph(k::Integer) chain_graph(L::Integer)
+#Base.@deprecate k_chain_graph(L::Integer) chain_graph(L::Integer)
 
 ##############################################################################
 #
