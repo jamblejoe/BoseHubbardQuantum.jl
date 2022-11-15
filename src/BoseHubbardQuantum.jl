@@ -6,9 +6,10 @@ module BoseHubbardQuantum
         - make basis creation multithreaded (req. Julia 1.3+)
 
 =#
-using LinearAlgebra
-using LightGraphs
-using SparseArrays
+using Reexport
+@reexport using LinearAlgebra
+@reexport using Graphs
+@reexport using SparseArrays
 
 
 # basis
