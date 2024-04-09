@@ -18,7 +18,9 @@ function bose_hubbard_hilbert_space_size(L::Integer, Nmin::Integer, Nmax::Intege
 end
 
 function bose_hubbard_hilbert_space_size(parameters::Dict)
-    L, N = _get_L_N(parameters)
+    #L, N = _get_L_N(parameters)
+    L = parameters["L"]
+    N = parameters["N"]
   return bose_hubbard_hilbert_space_size(L, N)
 end
 
