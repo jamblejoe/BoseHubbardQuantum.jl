@@ -31,7 +31,7 @@
     @testset "N=1, k=1" begin
         # Define the correct basis list
         basis_corr = [[0,1],[1,0]]
-        basis_calc = LtrAscBasis(2,1).basis
+        basis_calc = LtrAscBasis(2,1).states
 
         @test basis_corr == basis_calc
     end
@@ -44,14 +44,14 @@
                       [1,0,1],
                       [1,1,0],
                       [2,0,0]]
-        basis_calc = LtrAscBasis(3,2).basis
+        basis_calc = LtrAscBasis(3,2).states
         @test basis_corr == basis_calc
     end
 
     @testset "k=2, Nmin=0, Nmax=1" begin
         # Define the correct basis list
         basis_corr = [[0,0],[0,1],[1,0]]
-        basis_calc = LtrAscBasis(2,0,1).basis
+        basis_calc = LtrAscBasis(2,0,1).states
 
         @test basis_corr == basis_calc
     end
@@ -68,7 +68,7 @@
                       [1,0,1],
                       [1,1,0],
                       [2,0,0]]
-        basis_calc = LtrAscBasis(3,0,2).basis
+        basis_calc = LtrAscBasis(3,0,2).states
         @test basis_corr == basis_calc
     end
 
@@ -83,7 +83,7 @@
                       [1,0,1],
                       [1,1,0],
                       [2,0,0]]
-        basis_calc = LtrAscBasis(3,1,2).basis
+        basis_calc = LtrAscBasis(3,1,2).states
         @test basis_corr == basis_calc
     end
 

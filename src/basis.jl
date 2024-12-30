@@ -17,14 +17,6 @@ function bose_hubbard_hilbert_space_size(L::Integer, Nmin::Integer, Nmax::Intege
     return binomial(Nmax+L,L)
 end
 
-function bose_hubbard_hilbert_space_size(parameters::Dict)
-    #L, N = _get_L_N(parameters)
-    L = parameters["L"]
-    N = parameters["N"]
-  return bose_hubbard_hilbert_space_size(L, N)
-end
-
-
 
 # Abstract Basis is not implemented yet and is just a placeholder
 # one should think of AbstractBasis needing to be abstract type
@@ -36,75 +28,84 @@ abstract type AbstractBasis end
 
 struct LtrAscBasis <: AbstractBasis
     L::Int
-    N::Int      # keep this for convinience and to not break old code
     Nmin::Int
     Nmax::Int
-    basis::Vector{Vector{Int}}
+    states::Vector{Vector{Int}}
     index::Dict{Vector{Int}, Int}
 end
 
 
 """
-Creates a list of basis states for
-N particles
-k sites
-The states are ordered in ascending order from left to right, e.g.
-for 2 particles and 3 sites
-(0,0,2) -> (0,1,1) -> (0,2,0) -> (1,0,1) -> (1,1,0) -> (2,0,0).
-The length of the list is binomial(N+L-1,L-1).
+    Creates a vector of basis states for N particles and L sites.
+    The states are ordered in ascending order from left to right, e.g.
+    for 2 particles and 3 sites
+    (0,0,2) -> (0,1,1) -> (0,2,0) -> (1,0,1) -> (1,1,0) -> (2,0,0).
+    The total number of basis states is binomial(N+L-1,L-1).
 """
-function LtrAscBasis(parameters::Dict)
-    L = _get_L(parameters)
-    N = parameters["N"]
-    LtrAscBasis(L,N)
-end
-
+function LtrAscBasis end
 LtrAscBasis(L::Integer, N::Integer) = LtrAscBasis(L, N, N)
 function LtrAscBasis(L::Integer, Nmin::Integer, Nmax::Integer)
 
-    @assert L>0
-    @assert Nmax >= Nmin >=0
-    @assert typeof(Nmin) == typeof(Nmax)
+    if L <= 0
+        throw(ArgumentError("L must be greater than 0"))
+    end
+    if Nmax < Nmin || Nmin < 0
+        throw(ArgumentError("Nmax must be greater than or equal to Nmin and Nmin must be non-negative"))
+    end
 
     # create the basis
-    state = zeros(typeof(Nmax), L)
-    basis = typeof(state)[]
+    tmp_state = zeros(typeof(Nmax), L)
+    states = typeof(tmp_state)[]
 
     for N in Nmin:Nmax
-        ltr_asc_loop!(basis, state, N, 1)
+        ltr_asc_loop!(states, tmp_state, N, 1)
     end
     # calculate the index
-    index = create_basis_index(basis)
+    index = create_basis_index(states)
 
-    return LtrAscBasis(L, Nmax, Nmin, Nmax, basis, index)
+    return LtrAscBasis(L, Nmin, Nmax, states, index)
 end
 
 # can this be improved by making it non-recursive?
 # see:
 # https://github.com/georglind/bosehubbard/blob/master/bosehubbard.py
 # http://iopscience.iop.org/article/10.1088/0143-0807/31/3/016
-function ltr_asc_loop!(basis, state, n::Integer, pos::Integer)
+function ltr_asc_loop!(states, state, n::Integer, pos::Integer)
     L = length(state)
     if pos < L
         for i in 0:n
             state[pos] = i
-            ltr_asc_loop!(basis, state, n-i, pos+1)
+            ltr_asc_loop!(states, state, n-i, pos+1)
         end
     else
         state[pos] = n
-        push!(basis, copy(state))
+        push!(states, copy(state))
     end
 end
 
-Base.length(basis::LtrAscBasis) = length(basis.basis)
+"""
+A helper function which creates a dictionary assigning basis elements
+to their position/index in the basis for quick lookup of the index.
+"""
+function create_basis_index(basis)
+    basis_element_type = eltype(basis)
+	basis_element_element_type = eltype(basis_element_type)
+    basis_to_index = Dict{basis_element_type, basis_element_element_type}()
+    for (i,basis_element) in enumerate(basis)
+        push!(basis_to_index, basis_element => i)
+    end
+    return basis_to_index
+end
+
+Base.length(basis::LtrAscBasis) = length(basis.states)
 sites(basis::LtrAscBasis) = basis.L
-Base.iterate(basis::LtrAscBasis) = iterate(basis.basis)
-Base.iterate(basis::LtrAscBasis, state) = iterate(basis.basis, state)
+Base.iterate(basis::LtrAscBasis) = iterate(basis.states)
+Base.iterate(basis::LtrAscBasis, state) = iterate(basis.states, state)
 Base.isequal(b1::LtrAscBasis, b2::LtrAscBasis) = b1.L == b2.L && b1.N == b2.N
 
 getposition(basis::LtrAscBasis, state::AbstractVector) = basis.index[state]
-getstate(basis::LtrAscBasis, index::Integer) = basis.basis[index]
-getstate!(state::AbstractVector, basis::LtrAscBasis, index::Integer) = state .= basis.basis[index]
+getstate(basis::LtrAscBasis, index::Integer) = basis.states[index]
+getstate!(state::AbstractVector, basis::LtrAscBasis, index::Integer) = state .= basis.states[index]
 Base.in(state::AbstractVector, basis::LtrAscBasis) = haskey(basis.index, state)
 Base.eachindex(basis::LtrAscBasis) = 1:length(basis)
 
@@ -112,7 +113,9 @@ Base.eachindex(basis::LtrAscBasis) = 1:length(basis)
 ##############################################################################
 
 """
-https://arxiv.org/pdf/1410.7280.pdf
+    Ponomarev basis for the Bose-Hubbard model. 
+    This is a non-allocating version of the LtrAscBasis for N=Nmin=Nmax.
+    Based on the paper by Raventós et al. (2014) https://arxiv.org/pdf/1410.7280.pdf
 """
 struct PonomarevBasis <: AbstractBasis
     L::Int
@@ -126,25 +129,21 @@ function PonomarevBasis(L::Integer, N::Integer)
     Ds = Matrix{Int}(undef, L+1, N+1)
     for i in 0:L
         for j in 0:N
-            Ds[i+1,j+1] = bose_hubbard_hilbert_space_size(i,j)
+            Ds[i+1,j+1] = binomial(j+i-1,i-1)
         end
     end
 
-    PonomarevBasis(L, N, bose_hubbard_hilbert_space_size(L,N), Ds)
+    PonomarevBasis(L, N, binomial(N+L-1,L-1), Ds)
 
 end
 
-function PonomarevBasis(parameters::Dict)
-    L = _get_L(parameters)
-    N = parameters["N"]
-    PonomarevBasis(L, N)
-end
 
 @inline _D(basis::PonomarevBasis, L::Integer, N::Integer) = basis.Ds[L+1, N+1]
 @inline _D_unsafe(basis::PonomarevBasis, L::Integer, N::Integer) = @inbounds basis.Ds[L+1, N+1]
 
 Base.length(basis::PonomarevBasis) = basis.D
 sites(basis::PonomarevBasis) = basis.L
+particles(basis::PonomarevBasis) = basis.N
 Base.isequal(b1::PonomarevBasis, b2::PonomarevBasis) = b1.L == b2.L && b1.N == b2.N
 
 """
@@ -155,7 +154,6 @@ function getposition(basis::PonomarevBasis, state::AbstractVector)
     N = basis.N
 
     length(state) == L || throw(DomainError(L, "length of state must be $L"))
-    #all(0 .<= state .<= N) || throw(DomainError(N, "components of state must be between 0 and $N"))
     for s in state
         0 <= s <= N || throw(DomainError(N, "components of state must be between 0 and $N"))
     end
@@ -165,7 +163,6 @@ function getposition(basis::PonomarevBasis, state::AbstractVector)
     l = N
     for (m_l,n_i) in enumerate(state)
         for _ in 1:n_i
-            #index += bose_hubbard_hilbert_space_size(L-m_l, l)
             index += _D_unsafe(basis, L-m_l, l)
             l -= 1
         end
@@ -184,7 +181,6 @@ end
 function getstate!(state::AbstractVector{T}, basis::PonomarevBasis, index::Integer) where T
     L = basis.L
     N = basis.N
-    #Ds = basis.Ds
 
     one(index) <= index <= length(basis) || error("index $index out of bounds [1,$(length(basis))]")
 
@@ -197,7 +193,6 @@ function getstate!(state::AbstractVector{T}, basis::PonomarevBasis, index::Integ
             m_i += one(index)
         end
         state[L-m_i] += one(T)
-        #index -= bose_hubbard_hilbert_space_size(m_i,i)
         index -= _D_unsafe(basis, m_i, i)
     
     end
@@ -223,7 +218,6 @@ function Base.in(state::AbstractVector, basis::PonomarevBasis)
     N = basis.N
 
     length(state) == L || return false
-    #all(0 .<= state) || return false
     for s in state
         0 <= s <= N || return false
     end
@@ -233,11 +227,6 @@ end
 
 ##############################################################################
 
-
-struct LtrAscCutoffBasis <: AbstractBasis
-	L::Int
-	d::Int
-end
 """
 Basis which has no restriction on number of particles but to make it finite
 there is a cutoff d on each site, i.e. on each site are maximal d particles.
@@ -245,11 +234,12 @@ The cutoff makes sense for positive U, as a lot of particles on one site are
 energetically punished. I think this makes the most sense when some product of
 cutoff d and U is big enough.
 """
-function LtrAscCutoffBasis(parameters::Dict)
-    L = _get_L(parameters)
-    d = parameters["d"]
-    LtrAscCutoffBasis(L, d)
+struct LtrAscCutoffBasis <: AbstractBasis
+	L::Int
+	d::Int
 end
+
+
 
 Base.length(basis::LtrAscCutoffBasis) = (basis.d+1)^basis.L
 sites(basis::LtrAscCutoffBasis) = basis.L
@@ -310,25 +300,5 @@ Base.eachindex(basis::LtrAscCutoffBasis) = 1:length(basis)
 
 ##############################################################################
 
-STD_BASIS = LtrAscBasis
-
-# the return type of this function is not defined at compile time!!
-function get_or_create_basis(parameters::Dict)
-	haskey(parameters, "basis") && return parameters["basis"]
-	STD_BASIS(parameters)
-end
 
 
-"""
-A helper function which creates a dictionary assigning basis elements
-to their position/index in the basis for quick lookup of the index.
-"""
-function create_basis_index(basis)
-    basis_element_type = eltype(basis)
-	basis_element_element_type = eltype(basis_element_type)
-    basis_to_index = Dict{basis_element_type, basis_element_element_type}()
-    for (i,basis_element) in enumerate(basis)
-        push!(basis_to_index, basis_element => i)
-    end
-    return basis_to_index
-end
